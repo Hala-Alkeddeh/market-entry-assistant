@@ -1,10 +1,5 @@
-function App() {
-  return (
-    <div>
-      <h1>Market Entry Assistant</h1>
-      <p>MVP in progress...</p>
-    </div>
-  );
-}
+import AppRouter from "./router/AppRouter";
 
-export default App;
+export default function App() {
+  return <AppRouter />;
+}
