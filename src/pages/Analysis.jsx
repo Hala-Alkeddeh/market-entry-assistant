@@ -1,14 +1,29 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Analysis() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const answers = location.state;
 
   useEffect(() => {
-    setTimeout(() => {
-      navigate("/result");
-    }, 2000);
-  }, []);
+    if (!answers) {
+      navigate("/");
+      return;
+    }
 
-  return <h1>Analyzing...</h1>;
+    const timer = setTimeout(() => {
+      navigate("/result", { state: answers });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [answers, navigate]);
+
+  return (
+    <div>
+      <h1>Analyzing your market entry...</h1>
+      <p>Please wait</p>
+    </div>
+  );
 }
