@@ -1,0 +1,213 @@
+.result-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.result-title {
+  font-size: var(--font-size-2xl);
+  color: var(--color-primary);
+}
+
+.result-alert {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.result-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.result-section h2 {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-sm);
+}
+
+.result-summary-text {
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* خيارات الدخول — شبكة بطاقات */
+.entry-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-md);
+}
+
+.entry-option-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: #fbfcfe;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.entry-option-card h3 {
+  color: var(--color-primary);
+  font-size: var(--font-size-base);
+}
+
+.entry-option-complexity {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.entry-option-block ul {
+  margin: var(--space-xs) 0 0;
+}
+
+/* شريط الحالات (Legend) */
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.status-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-clear {
+  background: var(--color-success);
+}
+
+.dot-warning {
+  background: var(--color-warning);
+}
+
+.dot-blocked {
+  background: var(--color-danger);
+}
+
+/* شارات الحالة على كل قيد */
+.status-badge {
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge-clear {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+}
+
+.badge-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+}
+
+.badge-blocked {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+}
+
+.badge-unknown {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.constraints-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.constraint-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: #f9fafb;
+}
+
+.constraint-text {
+  flex: 1;
+  min-width: 12rem;
+}
+
+/* شارات الاستشهاد [S1] */
+.citation-list {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.citation-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* الفجوات/المعلومات الناقصة — قسم مميّز بصريًا */
+.result-gaps {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+
+.result-gaps h2 {
+  color: var(--color-warning);
+}
+
+/* ملخص للمحامي — قائمة تحقق */
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-xs) 0 0;
+}
+
+.checklist li::before {
+  content: "\2610  "; /* ☐ */
+}
+
+.result-empty {
+  align-items: center;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .result-page > .btn {
+    align-self: flex-start;
+    min-width: 10rem;
+  }
+}

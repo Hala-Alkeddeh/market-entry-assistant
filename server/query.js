@@ -1,0 +1,186 @@
+// خط أنابيب الاسترجاع والتوليد (RAG) — تحليل ملف تعريف المستخدم (profile)
+// تنبيه مهم: هذا النظام أداة دعم قرار لدخول السوق السوري فقط.
+// هو لا يقدّم استشارة قانونية ولا رأيًا قانونيًا — بل يبني فهمًا مبنيًا حصرًا على
+// المصادر المفهرسة، ويجهّز ملخصًا يساعد المستخدم عند لقائه بمحامٍ مختص لاحقًا.
+
+import { GoogleGenAI } from '@google/genai';
+import { Pinecone } from '@pinecone-database/pinecone';
+import { config, requireEnv } from './config.js';
+
+const TOP_K = 6;
+
+// system prompt صارم — كل القواعد المطلوبة مذكورة صراحة لتقليل احتمال تجاوزها
+const SYSTEM_PROMPT = `
+أنت مساعد تحليلي ضمن نظام دعم قرار لدخول السوق السوري (Market Entry Decision Support System).
+
+قواعد صارمة يجب الالتزام بها دائمًا بدون استثناء:
+١. أجب حصريًا اعتمادًا على المحتوى الموجود داخل كتلة <SOURCES> أدناه.
+   يُمنع منعًا باتًا استخدام أي معرفة عامة أو معلومات من خارج هذه المصادر.
+٢. إذا كانت المصادر لا تغطي نقطة معيّنة تخص ملف المستخدم، لا تخترع إجابة إطلاقًا —
+   بل أدرج تلك النقطة كعنصر داخل "gaps".
+٣. لا تقدّم استشارة قانونية ولا رأيًا قانونيًا شخصيًا. اكتفِ بنقل ما تنص عليه
+   المصادر حرفيًا أو بمعناها الدقيق، دون تفسير قانوني إضافي من عندك.
+٤. بعد كل ادعاء أو معلومة مبنية على مصدر، أضف إشارة المصدر بالشكل [S1] أو [S2]...
+   وفق أرقام المصادر كما وردت في <SOURCES>.
+٥. قاعدة تحديد "status" لكل قيد (constraint):
+   - "clear": فقط إذا كانت المصادر تدعم هذا القيد بشكل صريح وواضح.
+   - "blocked": فقط إذا نصّت إحدى المصادر صراحةً على منع/حظر هذا الأمر.
+   - "needs_clarification": في أي حالة أخرى (غموض، معلومة جزئية، تضارب، إلخ).
+٦. أعد الإجابة بصيغة JSON صالحة فقط — بدون أي نص قبلها أو بعدها،
+   وبدون أسوار كود (code fences من نوع \`\`\`)، وبالشكل التالي بالضبط:
+
+{
+  "constraints": [ { "text": "...", "status": "clear|needs_clarification|blocked", "sources": ["S1"] } ],
+  "entryOptions": [ { "name": "...", "complexity": "...", "requirements": ["..."], "risks": ["..."], "sources": ["S2"] } ],
+  "gaps": [ "معلومة ناقصة أو غير مغطاة بالمصادر..." ],
+  "lawyerSummary": { "businessSummary": "...", "keyLegalQuestions": ["..."], "missingDocuments": ["..."] }
+}
+`.trim();
+
+// TODO 1: بناء استعلام استرجاع بالعربية من حقول ملف تعريف المستخدم
+// الحقول مطابقة لأسئلة Input.jsx المبنية على "Questions the Software Should
+// Ask the User" الواردة في كل ملفات /sources
+function buildRetrievalQuery(profile) {
+  const {
+    investorLocation,
+    nationality,
+    hasCompanyAbroad,
+    purpose,
+    sector,
+    businessType,
+    ownershipPreference,
+    capital,
+    partnersCount,
+    freeText,
+  } = profile;
+
+  const parts = [];
+
+  if (investorLocation) parts.push(`موقع المؤسس: ${investorLocation}`);
+  if (nationality) parts.push(`جنسية المؤسس: ${nationality}`);
+  if (hasCompanyAbroad) parts.push(`يمتلك شركة مسجلة خارج سوريا: ${hasCompanyAbroad}`);
+  if (purpose) parts.push(`الهدف من الدخول: ${purpose}`);
+  if (sector) parts.push(`القطاع المستهدف: ${sector}`);
+  if (businessType) parts.push(`الشكل القانوني المفضل: ${businessType}`);
+  if (ownershipPreference) parts.push(`تفضيل نسبة الملكية: ${ownershipPreference}`);
+  if (capital) parts.push(`رأس المال المتاح: ${capital}`);
+  if (partnersCount) parts.push(`عدد الشركاء المتوقع: ${partnersCount}`);
+  if (freeText) parts.push(`تفاصيل إضافية من المستخدم: ${freeText}`);
+
+  return parts.join('. ');
+}
+
+// TODO 2: تحويل استعلام الاسترجاع إلى متجه — بنفس نموذج وأبعاد ingest.js (من config.js، بدون تثبيت مباشر)
+async function embedQuery(ai, text) {
+  const result = await ai.models.embedContent({
+    model: config.embeddingModel,
+    contents: text,
+    config: { outputDimensionality: config.embeddingDimension },
+  });
+  return result.embeddings[0].values;
+}
+
+async function getPineconeIndex(pc) {
+  const description = await pc.describeIndex(config.pineconeIndexName);
+  return pc.index({ host: description.host });
+}
+
+// TODO 3: البحث في Pinecone عن أقرب top_k=6 متجهات، مع البيانات الوصفية (metadata)
+async function retrieveMatches(pc, queryVector) {
+  const index = await getPineconeIndex(pc);
+  const queryResponse = await index.query({
+    vector: queryVector,
+    topK: TOP_K,
+    includeMetadata: true,
+  });
+  return queryResponse.matches ?? [];
+}
+
+// بناء كتلة <SOURCES> بمعرّفات [S1], [S2]... حسب ترتيب النتائج المسترجَعة
+function buildSourcesBlock(matches) {
+  return matches
+    .map((match, i) => `[S${i + 1}] (المصدر: ${match.metadata?.source ?? 'غير معروف'})\n${match.metadata?.text ?? ''}`)
+    .join('\n\n');
+}
+
+// TODO 4: بناء الطلب المرسل لنموذج الدردشة — system prompt صارم + <SOURCES> + ملف المستخدم
+function buildUserPrompt(profile, retrievalQuery, sourcesBlock) {
+  return [
+    '<SOURCES>',
+    sourcesBlock || '(لا توجد مصادر مسترجَعة)',
+    '</SOURCES>',
+    '',
+    `ملف تعريف المستخدم (بصيغة JSON):`,
+    JSON.stringify(profile, null, 2),
+    '',
+    `استعلام الاسترجاع المستخدم للبحث عن المصادر أعلاه: "${retrievalQuery}"`,
+  ].join('\n');
+}
+
+// إزالة أسوار الكود (```json ... ```) إن وُجدت بالخطأ رغم التعليمات الصارمة
+function stripJsonFences(rawText) {
+  return rawText
+    .replace(/^\s*```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+    .trim();
+}
+
+// TODO 6: تحليل نص JSON بأمان — مع fallback آمن عند فشل التحليل
+function safeParseModelOutput(rawText) {
+  try {
+    return { data: JSON.parse(stripJsonFences(rawText)), parseError: null };
+  } catch (error) {
+    return { data: null, parseError: error.message };
+  }
+}
+
+function buildFallbackResult(rawText, parseError) {
+  return {
+    error: true,
+    message: 'تعذّر تحليل استجابة النموذج كـ JSON صالح — تم إرجاع نتيجة احتياطية آمنة',
+    parseError,
+    rawText,
+    constraints: [],
+    entryOptions: [],
+    gaps: ['تعذّر إنتاج تحليل موثوق لهذا الطلب — يُرجى إعادة المحاولة'],
+    lawyerSummary: { businessSummary: '', keyLegalQuestions: [], missingDocuments: [] },
+  };
+}
+
+// TODO 5+6+7: الدالة الرئيسية — تُنفَّذ كل خطوات RAG وتُرجع النتيجة مع المصادر
+export async function answerFromProfile(profile) {
+  const geminiApiKey = requireEnv('GEMINI_API_KEY');
+  const pineconeApiKey = requireEnv('PINECONE_API_KEY');
+  requireEnv('PINECONE_INDEX_NAME');
+
+  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+  const pc = new Pinecone({ apiKey: pineconeApiKey });
+
+  const retrievalQuery = buildRetrievalQuery(profile);
+  const queryVector = await embedQuery(ai, retrievalQuery);
+  const matches = await retrieveMatches(pc, queryVector);
+  const sourcesBlock = buildSourcesBlock(matches);
+  const userPrompt = buildUserPrompt(profile, retrievalQuery, sourcesBlock);
+
+  const response = await ai.models.generateContent({
+    model: config.chatModel,
+    contents: userPrompt,
+    config: {
+      systemInstruction: SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  const rawText = response.text ?? '';
+  const { data, parseError } = safeParseModelOutput(rawText);
+  const result = data ?? buildFallbackResult(rawText, parseError);
+
+  // TODO 7: إرجاع المقاطع المسترجَعة (id, source, path) لعرضها في الواجهة
+  const sources = matches.map((match, i) => ({
+    id: `S${i + 1}`,
+    source: match.metadata?.source ?? null,
+    path: match.metadata?.path ?? null,
+  }));
+
+  return { result, sources };
+}

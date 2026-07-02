@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Secrets
+.env
+
+# Reference documents (dropped locally, not committed)
+sources/*
+!sources/.gitkeep
+
+# Note: vector store is Pinecone (API-based) — no local vector DB folder to ignore
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
