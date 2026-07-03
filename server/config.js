@@ -27,6 +27,10 @@ export const config = {
   // Pinecone (مخزن المتجهات المُختار)
   pineconeApiKey: process.env.PINECONE_API_KEY,
   pineconeIndexName: process.env.PINECONE_INDEX_NAME,
+
+  // وضع المحاكاة (Mock) — للتطوير المحلي فقط، دون استهلاك حصة Gemini المجانية اليومية
+  // true فقط عندما تكون القيمة الحرفية "true" في .env؛ أي قيمة أخرى أو عدم التحديد = false
+  useMock: process.env.USE_MOCK === 'true',
 };
 
 export { requireEnv };

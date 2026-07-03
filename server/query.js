@@ -6,6 +6,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { config, requireEnv } from './config.js';
+import { buildMockResult } from './mock.js';
 
 const TOP_K = 6;
 
@@ -149,6 +150,13 @@ function buildFallbackResult(rawText, parseError) {
 
 // TODO 5+6+7: الدالة الرئيسية — تُنفَّذ كل خطوات RAG وتُرجع النتيجة مع المصادر
 export async function answerFromProfile(profile) {
+  // وضع المحاكاة (Mock): يُرجع بيانات وهمية فورًا دون أي استدعاء خارجي
+  // (لا Gemini embeddings، لا Pinecone، لا Gemini chat) — للتطوير المحلي فقط.
+  // يُفعَّل عبر USE_MOCK=true في .env (راجع server/mock.js و server/config.js).
+  if (config.useMock) {
+    return buildMockResult(profile);
+  }
+
   const geminiApiKey = requireEnv('GEMINI_API_KEY');
   const pineconeApiKey = requireEnv('PINECONE_API_KEY');
   requireEnv('PINECONE_INDEX_NAME');
