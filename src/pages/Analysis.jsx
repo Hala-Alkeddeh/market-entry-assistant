@@ -5,6 +5,21 @@ import "./Analysis.css";
 // عنوان الخادم الخلفي (Express) — يمكن تجاوزه عبر VITE_API_BASE_URL دون تعديل الكود
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
+// رسائل عربية واضحة لكل نوع خطأ آمن يُرجعه الخادم — لا تُعرض أي تفاصيل تقنية
+// خام (status codes، أسماء نماذج، حصص استخدام، روابط API) للمستخدم إطلاقًا
+const ERROR_MESSAGES = {
+  quota: "لقد تجاوزنا الحد المسموح من الطلبات حاليًا. يرجى المحاولة بعد قليل.",
+  network: "تعذّر الاتصال بالخادم. تحقّق من اتصالك بالإنترنت وحاول مجددًا.",
+  auth: "حدث خطأ في الإعداد. يرجى المحاولة لاحقًا.",
+  unavailable: "الخدمة مشغولة حاليًا. يرجى المحاولة بعد قليل.",
+  location: "الخدمة غير متاحة من موقعك الحالي. قد تحتاج إلى تعديل إعدادات الشبكة.",
+  unknown: "حدث خطأ غير متوقع أثناء التحليل. يرجى المحاولة مجددًا.",
+};
+
+function getErrorMessage(type) {
+  return ERROR_MESSAGES[type] ?? ERROR_MESSAGES.unknown;
+}
+
 export default function Analysis() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,18 +43,25 @@ export default function Analysis() {
           body: JSON.stringify({ profile }),
         });
 
-        const data = await response.json();
+        // إن فشل تحليل الاستجابة كـ JSON، نتعامل معها كخطأ غير معروف (unknown)
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
-          throw new Error(data?.error || `فشل الطلب (HTTP ${response.status})`);
+          // data?.error هنا نوع خطأ آمن فقط من الخادم (quota/network/auth/...) — نسجّله للتصحيح فقط
+          console.error("فشل طلب /api/analyze:", response.status, data);
+          throw new Error(data?.error || "unknown");
         }
 
         if (!cancelled) {
           navigate("/result", { state: data });
         }
       } catch (err) {
+        // لا نعرض err.message الخام أبدًا للمستخدم — فقط رسالة عربية آمنة مطابقة لنوع الخطأ
+        // fetch نفسه قد يرمي TypeError عند فشل الشبكة (لا يصل الطلب إلى الخادم إطلاقًا)
+        console.error("فشل التحليل:", err);
         if (!cancelled) {
-          setError(err.message || "حدث خطأ غير متوقع أثناء التحليل");
+          const type = err instanceof TypeError ? "network" : err.message;
+          setError(getErrorMessage(type));
         }
       }
     }

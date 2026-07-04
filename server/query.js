@@ -27,6 +27,42 @@ const SOURCE_DISPLAY_NAMES = {
   SyrianCompaniesLaw: 'قانون الشركات السوري',
 };
 
+// أنواع الأخطاء "الآمنة" التي يمكن إرسالها إلى الواجهة الأمامية — لا تحتوي على
+// أي تفاصيل تقنية (لا status codes، لا أسماء نماذج، لا حصص استخدام، لا روابط API)
+// القيم الممكنة: quota | network | auth | unavailable | location | unknown
+// تُستخدم من الواجهة الأمامية (Analysis.jsx) لعرض رسالة عربية مناسبة لكل حالة
+
+// يصنّف خطأ خام (من Gemini أو Pinecone أو من requireEnv) إلى أحد الأنواع الآمنة أعلاه
+// التفاصيل الكاملة للخطأ (رسالة Google الحرفية، status، إلخ) لا تُستخدم إلا هنا للتصنيف
+// ثم تُسجَّل في الطرفية عبر console.error فقط — ولا تُرسَل أبدًا إلى المستخدم
+function classifyProviderError(error) {
+  const status = error?.status ?? error?.statusCode;
+  const message = String(error?.message || error || '');
+
+  // مفتاح API غير موجود أصلاً (خطأ إعداد داخلي من requireEnv) — نعامله كخطأ "auth"
+  // حتى لا نكشف اسم متغيّر البيئة المفقود للمستخدم
+  if (/متغيّر البيئة المطلوب/i.test(message)) return 'auth';
+
+  if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(message)) return 'quota';
+
+  if (status === 401 || status === 403 || /UNAUTHENTICATED|PERMISSION_DENIED|API key/i.test(message)) {
+    return 'auth';
+  }
+
+  if (status === 503 || /UNAVAILABLE|overloaded/i.test(message)) return 'unavailable';
+
+  if (/location is not supported|FAILED_PRECONDITION/i.test(message) && /location/i.test(message)) {
+    return 'location';
+  }
+
+  // لا يوجد status رقمي إطلاقًا (الطلب لم يصل للخادم أصلاً) — على الأرجح فشل شبكة
+  if (!status && /fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|network/i.test(message)) {
+    return 'network';
+  }
+
+  return 'unknown';
+}
+
 // system prompt صارم — كل القواعد المطلوبة مذكورة صراحة لتقليل احتمال تجاوزها
 const SYSTEM_PROMPT = `
 أنت مساعد تحليلي ضمن نظام دعم قرار لدخول السوق السوري (Market Entry Decision Support System).
@@ -193,39 +229,49 @@ export async function answerFromProfile(profile) {
     return buildMockResult(profile);
   }
 
-  const geminiApiKey = requireEnv('GEMINI_API_KEY');
-  const pineconeApiKey = requireEnv('PINECONE_API_KEY');
-  requireEnv('PINECONE_INDEX_NAME');
+  try {
+    const geminiApiKey = requireEnv('GEMINI_API_KEY');
+    const pineconeApiKey = requireEnv('PINECONE_API_KEY');
+    requireEnv('PINECONE_INDEX_NAME');
 
-  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-  const pc = new Pinecone({ apiKey: pineconeApiKey });
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+    const pc = new Pinecone({ apiKey: pineconeApiKey });
 
-  const retrievalQuery = buildRetrievalQuery(profile);
-  const queryVector = await embedQuery(ai, retrievalQuery);
-  const matches = await retrieveMatches(pc, queryVector);
-  const sourcesBlock = buildSourcesBlock(matches);
-  const userPrompt = buildUserPrompt(profile, retrievalQuery, sourcesBlock);
+    const retrievalQuery = buildRetrievalQuery(profile);
+    const queryVector = await embedQuery(ai, retrievalQuery);
+    const matches = await retrieveMatches(pc, queryVector);
+    const sourcesBlock = buildSourcesBlock(matches);
+    const userPrompt = buildUserPrompt(profile, retrievalQuery, sourcesBlock);
 
-  const response = await ai.models.generateContent({
-    model: config.chatModel,
-    contents: userPrompt,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      responseMimeType: 'application/json',
-    },
-  });
+    const response = await ai.models.generateContent({
+      model: config.chatModel,
+      contents: userPrompt,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: 'application/json',
+      },
+    });
 
-  const rawText = response.text ?? '';
-  const { data, parseError } = safeParseModelOutput(rawText);
-  const result = data ?? buildFallbackResult(rawText, parseError);
+    const rawText = response.text ?? '';
+    const { data, parseError } = safeParseModelOutput(rawText);
+    const result = data ?? buildFallbackResult(rawText, parseError);
 
-  // TODO 7: إرجاع المقاطع المسترجَعة (id, اسم عرض مقروء, مقتطف نصي) لعرضها في الواجهة
-  // لا يُرسَل اسم الملف الخام ولا المسار المحلي إلى الواجهة الأمامية إطلاقًا
-  const sources = matches.map((match, i) => ({
-    id: `S${i + 1}`,
-    sourceName: getReadableSourceName(match.metadata?.source),
-    snippet: buildSnippet(match.metadata?.text),
-  }));
+    // TODO 7: إرجاع المقاطع المسترجَعة (id, اسم عرض مقروء, مقتطف نصي) لعرضها في الواجهة
+    // لا يُرسَل اسم الملف الخام ولا المسار المحلي إلى الواجهة الأمامية إطلاقًا
+    const sources = matches.map((match, i) => ({
+      id: `S${i + 1}`,
+      sourceName: getReadableSourceName(match.metadata?.source),
+      snippet: buildSnippet(match.metadata?.text),
+    }));
 
-  return { result, sources };
+    return { result, sources };
+  } catch (error) {
+    // التفاصيل الكاملة للخطأ (رسالة Gemini/Pinecone الخام، status، حصص الاستخدام، إلخ)
+    // تُسجَّل هنا فقط في طرفية الخادم لأغراض تصحيح الأخطاء — ولا تُرسَل للواجهة الأمامية إطلاقًا
+    console.error('answerFromProfile: فشل حقيقي في مسار RAG —', error);
+    const type = classifyProviderError(error);
+    // نرمي خطأ جديدًا رسالته نوع آمن فقط (quota/network/auth/unavailable/location/unknown)
+    // يقرأه index.js ثم يُترجَم إلى رسالة عربية في Analysis.jsx
+    throw new Error(type);
+  }
 }

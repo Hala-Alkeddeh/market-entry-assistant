@@ -187,7 +187,8 @@ export default function Result() {
                   <span className="citation-tag">{s.id}</span>
                   <span className="source-name">{s.sourceName ?? "مصدر غير معروف"}</span>
                 </div>
-                {s.snippet && <p className="source-snippet">{s.snippet}</p>}
+                {/* المقتطف (s.snippet) مخفي حاليًا من العرض عمدًا — البيانات ما زالت
+                    موجودة في الكائن، يمكن إعادة إظهاره لاحقًا بإرجاع سطر <p> هنا */}
               </div>
             ))}
           </div>

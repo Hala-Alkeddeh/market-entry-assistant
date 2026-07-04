@@ -23,6 +23,9 @@ app.post('/api/analyze', async (req, res) => {
     const { result, sources } = await answerFromProfile(profile);
     res.json({ result, sources });
   } catch (err) {
+    // err.message هنا نوع خطأ آمن فقط (quota/network/auth/unavailable/location/unknown)
+    // — التفاصيل الكاملة للخطأ الأصلي سُجِّلت بالفعل داخل query.js عبر console.error
+    console.error('POST /api/analyze رفض الطلب بنوع الخطأ:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

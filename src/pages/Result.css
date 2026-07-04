@@ -213,7 +213,8 @@
 }
 
 .source-card {
-  padding: var(--space-sm) var(--space-md);
+  /* عمودي أقل لأن البطاقة تعرض حاليًا سطر العنوان فقط (بدون مقتطف) */
+  padding: 0.6rem var(--space-md);
   background: #fbfcfe;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
