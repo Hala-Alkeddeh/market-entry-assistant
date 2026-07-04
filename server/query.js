@@ -10,6 +10,21 @@ import { buildMockResult } from './mock.js';
 
 const TOP_K = 6;
 
+// حد أقصى لطول مقتطف نص المصدر المعروض في الواجهة
+const SNIPPET_MAX_LENGTH = 200;
+
+// أسماء عرض عربية مقروءة لملفات المصادر المعروفة (بدون الامتداد) — مع fallback
+// ميكانيكي (استبدال _ و - بمسافة) لأي ملف غير مدرج هنا
+const SOURCE_DISPLAY_NAMES = {
+  journey: 'القاعدة المعرفية الشاملة لتأسيس الشركات في سوريا',
+  inside_syria: 'التأسيس للمقيمين داخل سوريا',
+  outside_syria: 'التأسيس للمستثمرين من خارج سوريا',
+  foreign_branch: 'تأسيس فرع لشركة أجنبية',
+  representative_office: 'تأسيس مكتب تمثيلي',
+  llc: 'الشركة المحدودة المسؤولية (LLC)',
+  steps: 'خطوات تأسيس شركة في سوريا',
+};
+
 // system prompt صارم — كل القواعد المطلوبة مذكورة صراحة لتقليل احتمال تجاوزها
 const SYSTEM_PROMPT = `
 أنت مساعد تحليلي ضمن نظام دعم قرار لدخول السوق السوري (Market Entry Decision Support System).
@@ -95,6 +110,25 @@ async function retrieveMatches(pc, queryVector) {
     includeMetadata: true,
   });
   return queryResponse.matches ?? [];
+}
+
+// يحوّل اسم ملف المصدر (source metadata) إلى اسم عرض مقروء بالعربية
+// لا يُعرَض أي مسار محلي (path) على الإطلاق — هذه الدالة تعتمد فقط على اسم الملف
+function getReadableSourceName(fileName) {
+  if (!fileName) return 'مصدر غير معروف';
+  const baseName = fileName.replace(/\.[^./]+$/, ''); // إزالة الامتداد (.md/.txt)
+  if (SOURCE_DISPLAY_NAMES[baseName]) return SOURCE_DISPLAY_NAMES[baseName];
+  // fallback: استبدال الشرطات السفلية/الفاصلة بمسافات (مثال: outside_syria → outside syria)
+  return baseName.replace(/[_-]+/g, ' ');
+}
+
+// يقتطع نص المقطع المخزَّن في Pinecone إلى مقتطف قصير يصلح للعرض في الواجهة
+function buildSnippet(text) {
+  if (!text) return '';
+  const trimmed = text.trim();
+  return trimmed.length > SNIPPET_MAX_LENGTH
+    ? `${trimmed.slice(0, SNIPPET_MAX_LENGTH).trim()}…`
+    : trimmed;
 }
 
 // بناء كتلة <SOURCES> بمعرّفات [S1], [S2]... حسب ترتيب النتائج المسترجَعة
@@ -183,11 +217,12 @@ export async function answerFromProfile(profile) {
   const { data, parseError } = safeParseModelOutput(rawText);
   const result = data ?? buildFallbackResult(rawText, parseError);
 
-  // TODO 7: إرجاع المقاطع المسترجَعة (id, source, path) لعرضها في الواجهة
+  // TODO 7: إرجاع المقاطع المسترجَعة (id, اسم عرض مقروء, مقتطف نصي) لعرضها في الواجهة
+  // لا يُرسَل اسم الملف الخام ولا المسار المحلي إلى الواجهة الأمامية إطلاقًا
   const sources = matches.map((match, i) => ({
     id: `S${i + 1}`,
-    source: match.metadata?.source ?? null,
-    path: match.metadata?.path ?? null,
+    sourceName: getReadableSourceName(match.metadata?.source),
+    snippet: buildSnippet(match.metadata?.text),
   }));
 
   return { result, sources };

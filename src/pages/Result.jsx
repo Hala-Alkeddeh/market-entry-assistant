@@ -180,13 +180,17 @@ export default function Result() {
       {sources.length > 0 && (
         <section className="result-section result-sources">
           <h2>المصادر</h2>
-          <ul>
+          <div className="source-list">
             {sources.map((s) => (
-              <li key={s.id}>
-                <span className="citation-tag">{s.id}</span> {s.source ?? "غير معروف"}
-              </li>
+              <div className="source-card" key={s.id}>
+                <div className="source-card-header">
+                  <span className="citation-tag">{s.id}</span>
+                  <span className="source-name">{s.sourceName ?? "مصدر غير معروف"}</span>
+                </div>
+                {s.snippet && <p className="source-snippet">{s.snippet}</p>}
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       )}
 
