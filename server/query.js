@@ -23,6 +23,8 @@ const SOURCE_DISPLAY_NAMES = {
   representative_office: 'تأسيس مكتب تمثيلي',
   llc: 'الشركة المحدودة المسؤولية (LLC)',
   steps: 'خطوات تأسيس شركة في سوريا',
+  minesrtyOfEconomyAndIndustry: 'دليل إجراءات التأسيس (وزارة الاقتصاد والصناعة)',
+  SyrianCompaniesLaw: 'قانون الشركات السوري',
 };
 
 // system prompt صارم — كل القواعد المطلوبة مذكورة صراحة لتقليل احتمال تجاوزها
