@@ -92,6 +92,8 @@ const QUESTIONS = [
     id: "freeText",
     label: "تفاصيل إضافية عن نشاطك (اختياري)",
     type: "textarea",
+    // حد أقصى لطول النص الحر — يطابق الحد المُطبَّق أيضًا على الخادم (راجع query.js)
+    maxLength: 500,
     placeholder:
       "مثال: نشاط تخليص جمركي، تطوير عقاري مقابل مقاولات عامة، أنشطة أمن سيبراني، خطة لتحويل الأرباح للخارج، وجود وكيل قانوني داخل سوريا...",
   },
@@ -157,6 +159,7 @@ export default function Input() {
               <textarea
                 value={answers[q.id]}
                 placeholder={q.placeholder}
+                maxLength={q.maxLength}
                 onChange={(e) => handleChange(q.id, e.target.value)}
               />
             )}
