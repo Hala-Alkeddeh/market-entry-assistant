@@ -244,6 +244,31 @@ function buildFallbackResult(rawText, parseError) {
   };
 }
 
+// يدمج مقاطع (chunks) متعددة قادمة من نفس ملف المصدر في عنصر واحد ضمن قائمة
+// المصادر المعروضة للمستخدم، بحيث يظهر كل مصدر مرة واحدة فقط باسمه المقروء
+// (مثال: S1 وS6 كلاهما من "llc.md" يظهران كسطر واحد باسم "LLC" ومعرّفين بجانبه).
+// نُبقي على معرّفات [S] الأصلية كما هي بدل إعادة ترقيمها، لأنها نفس المعرّفات
+// التي استخدمها النموذج في حقول "sources" داخل constraints/entryOptions — إعادة
+// الترقيم هنا كانت لتكسر تطابق الاستشهادات الظاهرة في نص التحليل مع قائمة المصادر
+function groupSourcesByName(sources) {
+  const bySourceName = new Map();
+
+  for (const source of sources) {
+    const existing = bySourceName.get(source.sourceName);
+    if (existing) {
+      existing.ids.push(source.id);
+    } else {
+      bySourceName.set(source.sourceName, {
+        ids: [source.id],
+        sourceName: source.sourceName,
+        snippet: source.snippet,
+      });
+    }
+  }
+
+  return [...bySourceName.values()];
+}
+
 // TODO 5+6+7: الدالة الرئيسية — تُنفَّذ كل خطوات RAG وتُرجع النتيجة مع المصادر
 export async function answerFromProfile(profile) {
   // وضع المحاكاة (Mock): يُرجع بيانات وهمية فورًا دون أي استدعاء خارجي
@@ -292,7 +317,7 @@ export async function answerFromProfile(profile) {
       snippet: buildSnippet(match.metadata?.text),
     }));
 
-    return { result, sources };
+    return { result, sources: groupSourcesByName(sources) };
   } catch (error) {
     // التفاصيل الكاملة للخطأ (رسالة Gemini/Pinecone الخام، status، حصص الاستخدام، إلخ)
     // تُسجَّل هنا فقط في طرفية الخادم لأغراض تصحيح الأخطاء — ولا تُرسَل للواجهة الأمامية إطلاقًا

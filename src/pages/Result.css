@@ -205,6 +205,13 @@
   text-align: center;
 }
 
+/* ملاحظة توضيحية خفيفة أعلى قائمة المصادر */
+.result-sources-note {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 /* قائمة المصادر — بطاقات مقروءة بدلاً من أسماء ملفات/مسارات خام */
 .source-list {
   display: flex;

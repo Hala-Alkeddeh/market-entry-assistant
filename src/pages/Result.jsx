@@ -180,11 +180,14 @@ export default function Result() {
       {sources.length > 0 && (
         <section className="result-section result-sources">
           <h2>المصادر</h2>
+          <p className="result-sources-note">
+            المصادر مراجع قانونية عامة؛ قد تنطبق بعض المعلومات على أكثر من حالة.
+          </p>
           <div className="source-list">
             {sources.map((s) => (
-              <div className="source-card" key={s.id}>
+              <div className="source-card" key={s.sourceName}>
                 <div className="source-card-header">
-                  <span className="citation-tag">{s.id}</span>
+                  <CitationTags ids={s.ids} />
                   <span className="source-name">{s.sourceName ?? "مصدر غير معروف"}</span>
                 </div>
                 {/* المقتطف (s.snippet) مخفي حاليًا من العرض عمدًا — البيانات ما زالت
