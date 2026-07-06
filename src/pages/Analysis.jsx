@@ -1,30 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useLanguage } from "../i18n/LanguageContext";
 import "./Analysis.css";
 
 // عنوان الخادم الخلفي (Express) — يمكن تجاوزه عبر VITE_API_BASE_URL دون تعديل الكود
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-// رسائل عربية واضحة لكل نوع خطأ آمن يُرجعه الخادم — لا تُعرض أي تفاصيل تقنية
-// خام (status codes، أسماء نماذج، حصص استخدام، روابط API) للمستخدم إطلاقًا
-const ERROR_MESSAGES = {
-  quota: "لقد تجاوزنا الحد المسموح من الطلبات حاليًا. يرجى المحاولة بعد قليل.",
-  network: "تعذّر الاتصال بالخادم. تحقّق من اتصالك بالإنترنت وحاول مجددًا.",
-  auth: "حدث خطأ في الإعداد. يرجى المحاولة لاحقًا.",
-  unavailable: "الخدمة مشغولة حاليًا. يرجى المحاولة بعد قليل.",
-  location: "الخدمة غير متاحة من موقعك الحالي. قد تحتاج إلى تعديل إعدادات الشبكة.",
-  invalid_request: "البيانات المُدخلة غير مكتملة أو غير صحيحة. يرجى مراجعة الحقول والمحاولة مجددًا.",
-  unknown: "حدث خطأ غير متوقع أثناء التحليل. يرجى المحاولة مجددًا.",
-};
-
-function getErrorMessage(type) {
-  return ERROR_MESSAGES[type] ?? ERROR_MESSAGES.unknown;
+// يحوّل نوع خطأ آمن (quota/network/auth/...) إلى رسالة نصية بلغة الواجهة الحالية —
+// لا تُعرض أي تفاصيل تقنية خام (status codes، أسماء نماذج، حصص استخدام، روابط API)
+// للمستخدم إطلاقًا. عند غياب النوع من القاموس تُستخدم رسالة "unknown" كـ fallback
+function getErrorMessage(t, type) {
+  const path = `analysis.errorMessages.${type}`;
+  const message = t(path);
+  return message === path ? t("analysis.errorMessages.unknown") : message;
 }
 
 export default function Analysis() {
   const navigate = useNavigate();
   const location = useLocation();
   const profile = location.state?.profile;
+  const { lang, t } = useLanguage();
 
   const [error, setError] = useState("");
 
@@ -41,7 +36,7 @@ export default function Analysis() {
         const response = await fetch(`${API_BASE}/api/analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profile }),
+          body: JSON.stringify({ profile, language: lang }),
         });
 
         // إن فشل تحليل الاستجابة كـ JSON، نتعامل معها كخطأ غير معروف (unknown)
@@ -57,12 +52,12 @@ export default function Analysis() {
           navigate("/result", { state: data });
         }
       } catch (err) {
-        // لا نعرض err.message الخام أبدًا للمستخدم — فقط رسالة عربية آمنة مطابقة لنوع الخطأ
+        // لا نعرض err.message الخام أبدًا للمستخدم — فقط رسالة آمنة مطابقة لنوع الخطأ ولغة الواجهة
         // fetch نفسه قد يرمي TypeError عند فشل الشبكة (لا يصل الطلب إلى الخادم إطلاقًا)
         console.error("فشل التحليل:", err);
         if (!cancelled) {
           const type = err instanceof TypeError ? "network" : err.message;
-          setError(getErrorMessage(type));
+          setError(getErrorMessage(t, type));
         }
       }
     }
@@ -78,10 +73,10 @@ export default function Analysis() {
   if (error) {
     return (
       <div className="analysis-page">
-        <h1 className="analysis-error-title">تعذّر إتمام التحليل</h1>
+        <h1 className="analysis-error-title">{t("analysis.errorTitle")}</h1>
         <p className="analysis-error-message">{error}</p>
         <button className="btn btn-primary" onClick={() => navigate("/input")}>
-          العودة والمحاولة مجددًا
+          {t("analysis.retryButton")}
         </button>
       </div>
     );
@@ -89,9 +84,9 @@ export default function Analysis() {
 
   return (
     <div className="analysis-page">
-      <div className="spinner" role="status" aria-label="جاري التحميل" />
-      <h1 className="analysis-title">جاري تحليل بيانات دخولك إلى السوق...</h1>
-      <p className="analysis-subtitle">قد تستغرق هذه العملية بضع ثوانٍ</p>
+      <div className="spinner" role="status" aria-label={t("analysis.loadingAriaLabel")} />
+      <h1 className="analysis-title">{t("analysis.loadingTitle")}</h1>
+      <p className="analysis-subtitle">{t("analysis.loadingSubtitle")}</p>
     </div>
   );
 }

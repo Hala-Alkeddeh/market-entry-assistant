@@ -69,9 +69,8 @@ body {
   padding: 0;
 }
 
-html {
-  direction: rtl;
-}
+/* الاتجاه (RTL/LTR) يُضبط ديناميكيًا عبر السمة dir على <html> من LanguageContext —
+   القيمة الابتدائية (قبل تحميل React) تأتي من dir="rtl" الثابتة في index.html */
 
 body {
   min-height: 100vh;

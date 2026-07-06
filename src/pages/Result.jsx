@@ -1,19 +1,21 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { useLanguage } from "../i18n/LanguageContext";
 import "./Result.css";
 
+// المفتاح هنا نوع status كما يعيده النموذج، والقيمة تشير إلى مفتاح الترجمة داخل
+// result.status.* (راجع src/i18n/ar.js و en.js) بالإضافة إلى صنف CSS الخاص بالشارة
 const STATUS_META = {
-  clear: { label: "واضح", className: "badge-clear", dotClassName: "dot-clear" },
-  needs_clarification: {
-    label: "يحتاج توضيحًا",
-    className: "badge-warning",
-    dotClassName: "dot-warning",
-  },
-  blocked: { label: "ممنوع", className: "badge-blocked", dotClassName: "dot-blocked" },
+  clear: { key: "clear", className: "badge-clear" },
+  needs_clarification: { key: "needsClarification", className: "badge-warning" },
+  blocked: { key: "blocked", className: "badge-blocked" },
 };
 
 function StatusBadge({ status }) {
-  const meta = STATUS_META[status] ?? { label: status, className: "badge-unknown" };
-  return <span className={`status-badge ${meta.className}`}>{meta.label}</span>;
+  const { t } = useLanguage();
+  const meta = STATUS_META[status];
+  const label = meta ? t(`result.status.${meta.key}`) : status;
+  const className = meta ? meta.className : "badge-unknown";
+  return <span className={`status-badge ${className}`}>{label}</span>;
 }
 
 function CitationTags({ ids }) {
@@ -32,6 +34,7 @@ function CitationTags({ ids }) {
 export default function Result() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const data = location.state;
 
@@ -39,10 +42,10 @@ export default function Result() {
   if (!data || typeof data !== "object" || !data.result) {
     return (
       <div className="result-page result-empty">
-        <h2>لا توجد بيانات</h2>
-        <p>يرجى إكمال التقييم أولًا.</p>
+        <h2>{t("result.empty.title")}</h2>
+        <p>{t("result.empty.message")}</p>
         <button className="btn btn-primary" onClick={() => navigate("/")}>
-          العودة إلى البداية
+          {t("result.empty.cta")}
         </button>
       </div>
     );
@@ -58,37 +61,32 @@ export default function Result() {
 
   return (
     <div className="result-page">
-      <h1 className="result-title">قرار دخول السوق</h1>
+      <h1 className="result-title">{t("result.title")}</h1>
 
-      {result.error && (
-        <div className="result-alert">
-          ⚠ لم يتمكن النظام من إنتاج تحليل موثوق بالكامل لهذا الطلب. الرجاء
-          إعادة المحاولة، أو مراجعة التفاصيل التقنية أدناه.
-        </div>
-      )}
+      {result.error && <div className="result-alert">{t("result.errorBanner")}</div>}
 
       {lawyerSummary.businessSummary && (
         <section className="result-section">
-          <h2>ملخص المشروع</h2>
+          <h2>{t("result.businessSummaryTitle")}</h2>
           <p className="result-summary-text">{lawyerSummary.businessSummary}</p>
         </section>
       )}
 
       {entryOptions.length > 0 && (
         <section className="result-section">
-          <h2>خيارات الدخول المقترحة</h2>
+          <h2>{t("result.entryOptionsTitle")}</h2>
           <div className="entry-options-grid">
             {entryOptions.map((option, i) => (
               <div className="entry-option-card" key={i}>
                 <h3>{option.name}</h3>
                 {option.complexity && (
                   <p className="entry-option-complexity">
-                    مستوى التعقيد: <strong>{option.complexity}</strong>
+                    {t("result.complexityLabel")} <strong>{option.complexity}</strong>
                   </p>
                 )}
                 {option.requirements?.length > 0 && (
                   <div className="entry-option-block">
-                    <strong>المتطلبات</strong>
+                    <strong>{t("result.requirementsLabel")}</strong>
                     <ul>
                       {option.requirements.map((req, j) => (
                         <li key={j}>{req}</li>
@@ -98,7 +96,7 @@ export default function Result() {
                 )}
                 {option.risks?.length > 0 && (
                   <div className="entry-option-block">
-                    <strong>المخاطر</strong>
+                    <strong>{t("result.risksLabel")}</strong>
                     <ul>
                       {option.risks.map((risk, j) => (
                         <li key={j}>{risk}</li>
@@ -115,16 +113,16 @@ export default function Result() {
 
       {constraints.length > 0 && (
         <section className="result-section">
-          <h2>القيود والشروط</h2>
+          <h2>{t("result.constraintsTitle")}</h2>
           <div className="status-legend">
             <span>
-              <span className="status-dot dot-clear" /> واضح
+              <span className="status-dot dot-clear" /> {t("result.status.clear")}
             </span>
             <span>
-              <span className="status-dot dot-warning" /> يحتاج توضيحًا
+              <span className="status-dot dot-warning" /> {t("result.status.needsClarification")}
             </span>
             <span>
-              <span className="status-dot dot-blocked" /> ممنوع
+              <span className="status-dot dot-blocked" /> {t("result.status.blocked")}
             </span>
           </div>
           <ul className="constraints-list">
@@ -141,7 +139,7 @@ export default function Result() {
 
       {gaps.length > 0 && (
         <section className="result-section result-gaps">
-          <h2>⚠ معلومات ناقصة</h2>
+          <h2>{t("result.gapsTitle")}</h2>
           <ul>
             {gaps.map((gap, i) => (
               <li key={i}>{gap}</li>
@@ -153,10 +151,10 @@ export default function Result() {
       {(lawyerSummary.keyLegalQuestions?.length > 0 ||
         lawyerSummary.missingDocuments?.length > 0) && (
         <section className="result-section result-lawyer">
-          <h2>ملخص للمحامي</h2>
+          <h2>{t("result.lawyerSummaryTitle")}</h2>
           {lawyerSummary.keyLegalQuestions?.length > 0 && (
             <div className="entry-option-block">
-              <strong>أسئلة قانونية رئيسية يجب طرحها على المحامي</strong>
+              <strong>{t("result.keyLegalQuestionsLabel")}</strong>
               <ul>
                 {lawyerSummary.keyLegalQuestions.map((q, i) => (
                   <li key={i}>{q}</li>
@@ -166,7 +164,7 @@ export default function Result() {
           )}
           {lawyerSummary.missingDocuments?.length > 0 && (
             <div className="entry-option-block">
-              <strong>مستندات ينبغي تجهيزها</strong>
+              <strong>{t("result.missingDocumentsLabel")}</strong>
               <ul className="checklist">
                 {lawyerSummary.missingDocuments.map((doc, i) => (
                   <li key={i}>{doc}</li>
@@ -179,19 +177,19 @@ export default function Result() {
 
       {sources.length > 0 && (
         <section className="result-section result-sources">
-          <h2>المصادر</h2>
-          <p className="result-sources-note">
-            المصادر مراجع قانونية عامة؛ قد تنطبق بعض المعلومات على أكثر من حالة.
-          </p>
+          <h2>{t("result.sourcesTitle")}</h2>
+          <p className="result-sources-note">{t("result.sourcesNote")}</p>
           <div className="source-list">
             {sources.map((s) => (
               <div className="source-card" key={s.sourceName}>
                 <div className="source-card-header">
                   <CitationTags ids={s.ids} />
-                  <span className="source-name">{s.sourceName ?? "مصدر غير معروف"}</span>
+                  <span className="source-name">{s.sourceName ?? t("result.unknownSource")}</span>
                 </div>
                 {/* المقتطف (s.snippet) مخفي حاليًا من العرض عمدًا — البيانات ما زالت
-                    موجودة في الكائن، يمكن إعادة إظهاره لاحقًا بإرجاع سطر <p> هنا */}
+                    موجودة في الكائن، يمكن إعادة إظهاره لاحقًا بإرجاع سطر <p> هنا.
+                    المقتطفات نصوص حرفية من المصادر وتبقى بالعربية دومًا، حتى في
+                    وضع الإنجليزية — لا تُترجَم أبدًا (راجع query.js) */}
               </div>
             ))}
           </div>
@@ -199,7 +197,7 @@ export default function Result() {
       )}
 
       <button className="btn btn-primary" onClick={() => navigate("/")}>
-        بدء تحليل جديد
+        {t("result.newAnalysisButton")}
       </button>
     </div>
   );

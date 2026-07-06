@@ -31,6 +31,21 @@ const SOURCE_DISPLAY_NAMES = {
   SyrianCompaniesLaw: 'قانون الشركات السوري',
 };
 
+// النسخة الإنجليزية من أسماء العرض أعلاه — تُستخدم فقط لعنوان بطاقة المصدر في
+// الواجهة عندما تكون لغة الإخراج المطلوبة إنجليزية. لا علاقة لها بالاسترجاع
+// (retrieval) ولا بمحتوى <SOURCES> المرسَل للنموذج، وهما يبقيان عربيين دومًا
+const SOURCE_DISPLAY_NAMES_EN = {
+  journey: 'Comprehensive Knowledge Base for Company Formation in Syria',
+  inside_syria: 'Formation for Residents Inside Syria',
+  outside_syria: 'Formation for Investors From Outside Syria',
+  foreign_branch: 'Establishing a Branch of a Foreign Company',
+  representative_office: 'Establishing a Representative Office',
+  llc: 'Limited Liability Company (LLC)',
+  steps: 'Steps to Establish a Company in Syria',
+  minesrtyOfEconomyAndIndustry: 'Formation Procedures Guide (Ministry of Economy and Industry)',
+  SyrianCompaniesLaw: 'Syrian Companies Law',
+};
+
 // أنواع الأخطاء "الآمنة" التي يمكن إرسالها إلى الواجهة الأمامية — لا تحتوي على
 // أي تفاصيل تقنية (لا status codes، لا أسماء نماذج، لا حصص استخدام، لا روابط API)
 // القيم الممكنة: quota | network | auth | unavailable | location | unknown
@@ -94,6 +109,33 @@ const SYSTEM_PROMPT = `
   "lawyerSummary": { "businessSummary": "...", "keyLegalQuestions": ["..."], "missingDocuments": ["..."] }
 }
 `.trim();
+
+// اسم كل لغة مدعومة كما يظهر داخل نص القاعدة الإضافية أدناه (بالعربية، لتناسق النص)
+const LANGUAGE_NAMES = {
+  ar: 'العربية',
+  en: 'الإنجليزية (English)',
+};
+
+// قاعدة إضافية واحدة فقط (رقم ٧) تُلحَق بعد SYSTEM_PROMPT الأصلي دون تعديل أي حرف
+// فيه — تتحكم حصريًا بلغة كتابة الحقول النصية في الإخراج. الاسترجاع من Pinecone
+// ومحتوى <SOURCES> المرسَل للنموذج يبقيان عربيين دومًا بغض النظر عن هذه القاعدة
+// (راجع buildRetrievalQuery وanswerFromProfile)، ومعرّفات الاستشهاد [S1]/[S2] يجب
+// أن تبقى كما هي حرفيًا دون ترجمة حتى تستمر مطابقتها لقائمة المصادر المعروضة
+function buildLanguageRule(language) {
+  const languageName = LANGUAGE_NAMES[language] ?? LANGUAGE_NAMES.ar;
+  return `
+٧. اكتب كل الحقول النصية في الإخراج (مثل text، businessSummary، requirements،
+   risks، gaps، keyLegalQuestions، missingDocuments) باللغة: ${languageName}.
+   مع ذلك، استمر بالاعتماد حصريًا على مضمون كتلة <SOURCES> العربية أعلاه دون أي
+   استثناء لهذه القاعدة (القواعد ١-٦ أعلاه تبقى سارية كما هي بالكامل)، ولا تُترجم
+   أو تُغيّر معرّفات الاستشهاد [S1]، [S2]... بل أبقِها كما وردت بالضبط.
+`.trim();
+}
+
+// يبني system prompt الكامل: SYSTEM_PROMPT الأصلي دون أي تعديل + القاعدة الإضافية ٧
+function buildSystemPrompt(language) {
+  return `${SYSTEM_PROMPT}\n\n${buildLanguageRule(language)}`;
+}
 
 // يقتطع نص freeText إلى الحد الأقصى الآمن قبل استخدامه في أي استدعاء خارجي
 // (embedding أو الطلب المرسل لنموذج الدردشة) — يحد من كلفة التوكن ويمنع نصًا لا نهائيًا
@@ -162,12 +204,15 @@ async function retrieveMatches(pc, queryVector) {
   return queryResponse.matches ?? [];
 }
 
-// يحوّل اسم ملف المصدر (source metadata) إلى اسم عرض مقروء بالعربية
-// لا يُعرَض أي مسار محلي (path) على الإطلاق — هذه الدالة تعتمد فقط على اسم الملف
-function getReadableSourceName(fileName) {
-  if (!fileName) return 'مصدر غير معروف';
+// يحوّل اسم ملف المصدر (source metadata) إلى اسم عرض مقروء، بالعربية أو الإنجليزية
+// حسب لغة الإخراج المطلوبة. لا يُعرَض أي مسار محلي (path) على الإطلاق — هذه الدالة
+// تعتمد فقط على اسم الملف. ملاحظة: هذا يغيّر فقط عنوان بطاقة المصدر المعروضة —
+// مقتطف النص (snippet) يبقى دومًا نصًا عربيًا حرفيًا من المصدر (راجع buildSnippet)
+function getReadableSourceName(fileName, language) {
+  if (!fileName) return language === 'en' ? 'Unknown source' : 'مصدر غير معروف';
   const baseName = fileName.replace(/\.[^./]+$/, ''); // إزالة الامتداد (.md/.txt)
-  if (SOURCE_DISPLAY_NAMES[baseName]) return SOURCE_DISPLAY_NAMES[baseName];
+  const displayNames = language === 'en' ? SOURCE_DISPLAY_NAMES_EN : SOURCE_DISPLAY_NAMES;
+  if (displayNames[baseName]) return displayNames[baseName];
   // fallback: استبدال الشرطات السفلية/الفاصلة بمسافات (مثال: outside_syria → outside syria)
   return baseName.replace(/[_-]+/g, ' ');
 }
@@ -270,12 +315,15 @@ function groupSourcesByName(sources) {
 }
 
 // TODO 5+6+7: الدالة الرئيسية — تُنفَّذ كل خطوات RAG وتُرجع النتيجة مع المصادر
-export async function answerFromProfile(profile) {
+// language: لغة إخراج نص التحليل فقط ('ar' الافتراضية أو 'en') — لا تؤثر إطلاقًا
+// على الاسترجاع (retrieval) الذي يبقى عربيًا دومًا لأن فهرس Pinecone مبني من
+// مقاطع عربية (راجع buildRetrievalQuery وbuildSystemPrompt أعلاه للتفاصيل)
+export async function answerFromProfile(profile, language = 'ar') {
   // وضع المحاكاة (Mock): يُرجع بيانات وهمية فورًا دون أي استدعاء خارجي
   // (لا Gemini embeddings، لا Pinecone، لا Gemini chat) — للتطوير المحلي فقط.
   // يُفعَّل عبر USE_MOCK=true في .env (راجع server/mock.js و server/config.js).
   if (config.useMock) {
-    return buildMockResult(profile);
+    return buildMockResult(profile, language);
   }
 
   try {
@@ -300,7 +348,7 @@ export async function answerFromProfile(profile) {
       model: config.chatModel,
       contents: userPrompt,
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: buildSystemPrompt(language),
         responseMimeType: 'application/json',
       },
     });
@@ -311,9 +359,10 @@ export async function answerFromProfile(profile) {
 
     // TODO 7: إرجاع المقاطع المسترجَعة (id, اسم عرض مقروء, مقتطف نصي) لعرضها في الواجهة
     // لا يُرسَل اسم الملف الخام ولا المسار المحلي إلى الواجهة الأمامية إطلاقًا
+    // اسم العرض يتبع لغة الإخراج المطلوبة، أما المقتطف فيبقى عربيًا دومًا (buildSnippet)
     const sources = matches.map((match, i) => ({
       id: `S${i + 1}`,
-      sourceName: getReadableSourceName(match.metadata?.source),
+      sourceName: getReadableSourceName(match.metadata?.source, language),
       snippet: buildSnippet(match.metadata?.text),
     }));
 

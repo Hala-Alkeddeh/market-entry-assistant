@@ -6,6 +6,9 @@ import cors from 'cors';
 import { config } from './config.js';
 import { answerFromProfile } from './query.js';
 
+// لغات الإخراج المدعومة لنص التحليل — أي قيمة أخرى تُرَدّ بصمت إلى 'ar' الافتراضية
+const SUPPORTED_LANGUAGES = ['ar', 'en'];
+
 // الحقول الإلزامية في ملف تعريف المستخدم (تطابق حقول type: "select" في Input.jsx)
 // freeText غير مدرج هنا عمدًا لأنه اختياري
 const REQUIRED_PROFILE_FIELDS = [
@@ -35,13 +38,17 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/api/analyze', async (req, res) => {
-  const { profile } = req.body ?? {};
+  const { profile, language } = req.body ?? {};
 
   // تحقق أساسي: يجب أن يكون profile كائنًا (object) وليس فارغًا
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
     res.status(400).json({ error: 'الحقل profile مطلوب ويجب أن يكون كائن JSON (object)' });
     return;
   }
+
+  // لغة إخراج التحليل (تفضيل عرض وليست معلومة عن وضع المستخدم، لذا لا تدخل ضمن
+  // تحقق الحقول الإلزامية أدناه) — أي قيمة غير مدعومة تُرَدّ بصمت إلى 'ar'
+  const outputLanguage = SUPPORTED_LANGUAGES.includes(language) ? language : 'ar';
 
   // تحقق من اكتمال الحقول الإلزامية قبل استدعاء Gemini/Pinecone (يوفّر الحصة المحدودة)
   const missingFields = findMissingRequiredFields(profile);
@@ -55,7 +62,7 @@ app.post('/api/analyze', async (req, res) => {
   }
 
   try {
-    const { result, sources } = await answerFromProfile(profile);
+    const { result, sources } = await answerFromProfile(profile, outputLanguage);
     res.json({ result, sources });
   } catch (err) {
     // err.message هنا نوع خطأ آمن فقط (quota/network/auth/unavailable/location/unknown)

@@ -4,6 +4,37 @@
   flex-direction: column;
 }
 
+.app-header {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-sm) var(--space-md) 0;
+}
+
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.lang-toggle-btn {
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+.lang-toggle-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
 .app-main {
   flex: 1;
   width: 100%;
