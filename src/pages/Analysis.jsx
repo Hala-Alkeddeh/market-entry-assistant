@@ -49,7 +49,9 @@ export default function Analysis() {
         }
 
         if (!cancelled) {
-          navigate("/result", { state: data });
+          // نمرّر profile أيضًا (وليس فقط result/sources) لأن صفحة النتائج تحتاجه
+          // لاحقًا عند إرسال أسئلة متابعة إلى /api/followup
+          navigate("/result", { state: { ...data, profile } });
         }
       } catch (err) {
         // لا نعرض err.message الخام أبدًا للمستخدم — فقط رسالة آمنة مطابقة لنوع الخطأ ولغة الواجهة

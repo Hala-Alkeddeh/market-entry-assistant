@@ -149,5 +149,15 @@ export const en = {
       message: "Please complete the assessment first.",
       cta: "Back to start",
     },
+    followUp: {
+      title: "Follow-up Questions",
+      subtitle: "Ask an additional question about this analysis — the answer will be grounded in the same sources.",
+      inputPlaceholder: "Type your question here...",
+      send: "Send",
+      sending: "Sending...",
+      emptyError: "Please write a question before sending.",
+      youLabel: "You:",
+      sourcesLabel: "Sources:",
+    },
   },
 };

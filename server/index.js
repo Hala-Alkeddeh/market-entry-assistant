@@ -4,10 +4,15 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
-import { answerFromProfile } from './query.js';
+import { answerFromProfile, answerFollowUp } from './query.js';
 
 // لغات الإخراج المدعومة لنص التحليل — أي قيمة أخرى تُرَدّ بصمت إلى 'ar' الافتراضية
 const SUPPORTED_LANGUAGES = ['ar', 'en'];
+
+// حد أقصى لطول سؤال المتابعة — يُقتطع الزائد بصمت بدل رفض الطلب (بخلاف الحقل
+// الفارغ الذي يُرفض). نفس فكرة FREE_TEXT_MAX_LENGTH في query.js لكن مُطبَّق هنا
+// مباشرة لأن التحقق من question بالكامل موجود في هذا الملف فقط
+const FOLLOWUP_QUESTION_MAX_LENGTH = 500;
 
 // الحقول الإلزامية في ملف تعريف المستخدم (تطابق حقول type: "select" في Input.jsx)
 // freeText غير مدرج هنا عمدًا لأنه اختياري
@@ -68,6 +73,44 @@ app.post('/api/analyze', async (req, res) => {
     // err.message هنا نوع خطأ آمن فقط (quota/network/auth/unavailable/location/unknown)
     // — التفاصيل الكاملة للخطأ الأصلي سُجِّلت بالفعل داخل query.js عبر console.error
     console.error('POST /api/analyze رفض الطلب بنوع الخطأ:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/followup', async (req, res) => {
+  const { profile, analysisResult, history, question, language } = req.body ?? {};
+
+  // نفس التحقق الأساسي المستخدم في /api/analyze: profile كائن غير فارغ
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+    console.error('POST /api/followup رفض الطلب: profile غير صالح');
+    res.status(400).json({ error: 'invalid_request' });
+    return;
+  }
+
+  // question إلزامي وغير فارغ — لا نستدعي Gemini/Pinecone إطلاقًا عند غيابه
+  if (typeof question !== 'string' || question.trim() === '') {
+    console.error('POST /api/followup رفض الطلب: question فارغ أو غير نصي');
+    res.status(400).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const outputLanguage = SUPPORTED_LANGUAGES.includes(language) ? language : 'ar';
+  // اقتطاع بصمت (وليس رفض الطلب) — يطابق سلوك freeText في التحليل الرئيسي
+  const safeQuestion = question.trim().slice(0, FOLLOWUP_QUESTION_MAX_LENGTH);
+  const safeHistory = Array.isArray(history) ? history : [];
+
+  try {
+    const { answer, sources } = await answerFollowUp(
+      profile,
+      analysisResult,
+      safeHistory,
+      safeQuestion,
+      outputLanguage
+    );
+    res.json({ answer, sources });
+  } catch (err) {
+    // نفس نمط معالجة الأخطاء في /api/analyze: نوع آمن فقط يُرسَل للواجهة الأمامية
+    console.error('POST /api/followup رفض الطلب بنوع الخطأ:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

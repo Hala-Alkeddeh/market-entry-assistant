@@ -120,6 +120,68 @@ function buildArabicMockResult(profile) {
   return { result, sources };
 }
 
+// إجابة وهمية لسؤال متابعة — بنفس شكل الاستجابة الحقيقية { answer, sources } تمامًا
+// (راجع answerFollowUp في query.js)، بدون أي استدعاء خارجي على الإطلاق
+export function buildFollowUpMockResult(question, language = 'ar') {
+  return language === 'en' ? buildEnglishFollowUpMockResult(question) : buildArabicFollowUpMockResult(question);
+}
+
+function buildArabicFollowUpMockResult(question) {
+  return {
+    answer:
+      `[بيانات وهمية للتطوير] بخصوص سؤالك ("${question}")، تشير المصادر المتاحة إلى أن ` +
+      'المستثمرين غير السوريين يمكنهم تملّك شركة محدودة المسؤولية بنسبة 100% دون شريك ' +
+      'سوري [S1]، شرط الحصول على موافقة أمنية مسبقة لأي شريك أو مؤسس غير مقيم في سوريا ' +
+      'قبل قيد الشركة أو إيداع رأس المال [S2]. لا تحدد المصادر المتاحة مدة زمنية ملزمة ' +
+      'لصدور هذه الموافقة. أما بخصوص أي خيار هو الأنسب لحالتك تحديدًا، فهذا قرار يعود ' +
+      'لك ولمحاميك المختص بناءً على ظروفك الخاصة — المصادر لا تقدّم توصية عامة بهذا الشأن.',
+    sources: [
+      {
+        ids: ['S1'],
+        sourceName: 'الشركة المحدودة المسؤولية (LLC)',
+        snippet:
+          'تُؤسَّس من شخص واحد سوري على الأقل، أو شخصين غير سوريين على الأقل. يمكن للمستثمرين غير السوريين تملّك الشركة بنسبة 100% دون وجود شريك سوري، ضمن الضوابط القانونية المعمول بها…',
+      },
+      {
+        ids: ['S2'],
+        sourceName: 'التأسيس للمستثمرين من خارج سوريا',
+        snippet:
+          'الحصول على موافقة أمنية مسبقة (Security Clearance) لكل مؤسس أو شريك غير مقيم في سوريا قبل قيد الشركة في السجل التجاري أو إيداع رأس المال…',
+      },
+    ],
+  };
+}
+
+function buildEnglishFollowUpMockResult(question) {
+  return {
+    answer:
+      `[Mock data for development] Regarding your question ("${question}"), the available ` +
+      'sources indicate that non-Syrian investors may own up to 100% of a Limited Liability ' +
+      'Company without a Syrian partner [S1], subject to obtaining prior security clearance ' +
+      'for any partner or founder not residing in Syria before registering the company or ' +
+      'depositing capital [S2]. The available sources do not specify a binding time limit for ' +
+      'issuing this clearance. As for which option best fits your specific situation, that is ' +
+      'a decision for you and your specialized lawyer to make based on your circumstances — ' +
+      'the sources do not offer a general recommendation on this matter.',
+    // أسماء المصادر مُترجمة، لكن المقتطفات تبقى بالعربية دومًا — نفس القاعدة المعتمدة
+    // في الوضع الحقيقي (راجع getReadableSourceName وbuildSnippet في query.js)
+    sources: [
+      {
+        ids: ['S1'],
+        sourceName: 'Limited Liability Company (LLC)',
+        snippet:
+          'تُؤسَّس من شخص واحد سوري على الأقل، أو شخصين غير سوريين على الأقل. يمكن للمستثمرين غير السوريين تملّك الشركة بنسبة 100% دون وجود شريك سوري، ضمن الضوابط القانونية المعمول بها…',
+      },
+      {
+        ids: ['S2'],
+        sourceName: 'Formation for Investors From Outside Syria',
+        snippet:
+          'الحصول على موافقة أمنية مسبقة (Security Clearance) لكل مؤسس أو شريك غير مقيم في سوريا قبل قيد الشركة في السجل التجاري أو إيداع رأس المال…',
+      },
+    ],
+  };
+}
+
 function buildEnglishMockResult(profile) {
   const sector = profile?.sector || 'Not specified';
   const investorLocation = profile?.investorLocation || 'Not specified';
