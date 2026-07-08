@@ -10,6 +10,12 @@ import { buildMockResult, buildFollowUpMockResult } from './mock.js';
 
 const TOP_K = 6;
 
+// TOP_K أعلى قليلاً خاص بأسئلة المتابعة فقط (وليس التحليل الرئيسي) — يمنح مجالًا
+// أوسع لمقطع نظري/قانوني قد لا يكون ضمن أفضل 6 نتائج لاستعلام قصير ومحدد لكنه
+// مناسب ضمن أفضل 8، خصوصًا بعد أن أصبح استعلام المتابعة مدفوعًا بالسؤال نفسه
+// لا بملف التعريف (راجع buildFollowUpRetrievalQuery)
+const FOLLOWUP_TOP_K = 8;
+
 // حد أقصى لطول مقتطف نص المصدر المعروض في الواجهة
 const SNIPPET_MAX_LENGTH = 200;
 
@@ -219,16 +225,26 @@ function buildRetrievalQuery(profile) {
   return parts.join('. ');
 }
 
-// يبني استعلام استرجاع لسؤال متابعة: يعيد استخدام buildRetrievalQuery أعلاه دون أي
-// تعديل (نفس الاستعلام العربي المبني من ملف تعريف المستخدم في التحليل الأصلي)
-// ويضيف إليه سؤال المتابعة كما كتبه المستخدم حرفيًا. هذا يُبقي الاسترجاع مرتكزًا
-// على المفردات العربية لملف التعريف حتى لو كُتب سؤال المتابعة بالإنجليزية، تفاديًا
-// لضعف المطابقة الدلالية عبر اللغات في نماذج التضمين (نفس منطق إبقاء الاسترجاع
-// عربيًا في التحليل الرئيسي — راجع buildSystemPrompt وbuildLanguageRule)
+// يبني تلميحًا مختصرًا جدًا من ملف تعريف المستخدم لاستعلام استرجاع سؤال المتابعة —
+// وليس الجملة الكاملة متعددة الحقول التي يبنيها buildRetrievalQuery (تلك محجوزة
+// للتحليل الرئيسي حيث الاسترجاع يجب أن يكون مدفوعًا بالكامل بملف التعريف). هنا
+// نكتفي بأهم أربع إشارات حتى لا يطغى التلميح على سؤال المستخدم نفسه في متجه التضمين
+function buildFollowUpProfileHint(profile) {
+  const { sector, businessType, nationality, investorLocation } = profile ?? {};
+  const parts = [sector, businessType, nationality, investorLocation].filter(Boolean);
+  return parts.length > 0 ? `(سياق مختصر عن المستخدم: ${parts.join('، ')})` : '';
+}
+
+// يبني استعلام استرجاع لسؤال متابعة: السؤال أولًا وبصياغته الكاملة كما كتبه
+// المستخدم، ليقود هو التضمين (embedding) — ثم تلميح قصير جدًا عن ملف التعريف يُضاف
+// بعده كسياق ثانوي فقط. يعالج هذا مشكلة كانت تُغرِق أسئلة قصيرة ومحددة (مثل
+// "ما شركة التضامن؟") داخل جملة طويلة عن القطاع/الموقع/رأس المال، فلا تصعد
+// المقاطع النظرية/القانونية (كقانون الشركات السوري) إلى أفضل النتائج رغم وجودها في
+// الفهرس. الاسترجاع يبقى بالعربية دومًا كما في التحليل الرئيسي؛ لا علاقة لهذا
+// بلغة الإخراج (language) — راجع buildLanguageRule
 function buildFollowUpRetrievalQuery(profile, question) {
-  const baseQuery = buildRetrievalQuery(profile);
-  const questionPart = `سؤال متابعة من المستخدم: ${question}`;
-  return baseQuery ? `${baseQuery}. ${questionPart}` : questionPart;
+  const profileHint = buildFollowUpProfileHint(profile);
+  return profileHint ? `${question} ${profileHint}` : question;
 }
 
 // TODO 2: تحويل استعلام الاسترجاع إلى متجه — بنفس نموذج وأبعاد ingest.js (من config.js، بدون تثبيت مباشر)
@@ -246,12 +262,14 @@ async function getPineconeIndex(pc) {
   return pc.index({ host: description.host });
 }
 
-// TODO 3: البحث في Pinecone عن أقرب top_k=6 متجهات، مع البيانات الوصفية (metadata)
-async function retrieveMatches(pc, queryVector) {
+// TODO 3: البحث في Pinecone عن أقرب topK متجهات، مع البيانات الوصفية (metadata)
+// topK اختياري ويأخذ TOP_K الخاص بالتحليل الرئيسي افتراضيًا — أسئلة المتابعة تمرر
+// FOLLOWUP_TOP_K صراحة (راجع answerFollowUp) دون أي تغيير في سلوك التحليل الرئيسي
+async function retrieveMatches(pc, queryVector, topK = TOP_K) {
   const index = await getPineconeIndex(pc);
   const queryResponse = await index.query({
     vector: queryVector,
-    topK: TOP_K,
+    topK,
     includeMetadata: true,
   });
   return queryResponse.matches ?? [];
@@ -473,11 +491,12 @@ export async function answerFromProfile(profile, language = 'ar') {
 }
 
 // يجيب عن سؤال متابعة يطرحه المستخدم بخصوص تحليل سابق — يعيد استخدام نفس خط أنابيب
-// RAG (نفس نموذج/أبعاد التضمين، نفس Pinecone، نفس TOP_K، نفس دالة الاسترجاع
-// retrieveMatches) دون أي تعديل عليه. الفرق الوحيد عن answerFromProfile: استعلام
-// الاسترجاع يتضمن سؤال المستخدم، وsystem prompt مخصص لصيغة إجابة حرة بدل التحليل
-// البنيوي الكامل. profile: نفس ملف التعريف الأصلي (يُستخدم فقط لبناء استعلام
-// الاسترجاع العربي، لا يُعاد إرساله كـ JSON في الطلب). language: كما في answerFromProfile
+// RAG (نفس نموذج/أبعاد التضمين، نفس Pinecone، نفس دالة الاسترجاع retrieveMatches)
+// دون أي تعديل على آلياته. يختلف عن answerFromProfile في: (أ) استعلام الاسترجاع
+// مدفوع بالسؤال أولًا لا بملف التعريف (راجع buildFollowUpRetrievalQuery)، (ب)
+// topK أعلى قليلاً (FOLLOWUP_TOP_K)، (ج) system prompt مخصص لإجابة حرة بدل التحليل
+// البنيوي الكامل. profile: يُستخدم فقط كتلميح مختصر في استعلام الاسترجاع، لا يُعاد
+// إرساله كـ JSON في الطلب. language: كما في answerFromProfile
 export async function answerFollowUp(profile, analysisResult, history, question, language = 'ar') {
   // وضع المحاكاة (Mock): إجابة وهمية جاهزة دون أي استدعاء خارجي — راجع mock.js
   if (config.useMock) {
@@ -497,7 +516,7 @@ export async function answerFollowUp(profile, analysisResult, history, question,
 
     const retrievalQuery = buildFollowUpRetrievalQuery(profile, question);
     const queryVector = await embedQuery(ai, retrievalQuery);
-    const matches = await retrieveMatches(pc, queryVector);
+    const matches = await retrieveMatches(pc, queryVector, FOLLOWUP_TOP_K);
     const sourcesBlock = buildSourcesBlock(matches);
     const userPrompt = buildFollowUpUserPrompt(analysisResult, windowedHistory, question, sourcesBlock, retrievalQuery);
 
