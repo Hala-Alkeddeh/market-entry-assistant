@@ -9,7 +9,10 @@ const LanguageContext = createContext(null);
 
 function readInitialLang() {
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "en" ? "en" : "ar";
+  // الإنجليزية هي اللغة الافتراضية الآن — أي قيمة محفوظة صالحة ("ar" أو "en") تُحترَم،
+  // وأي غياب أو قيمة غير معروفة يعود إلى الافتراضي الجديد "en" (كان "ar" سابقًا)
+  if (stored === "ar" || stored === "en") return stored;
+  return "en";
 }
 
 // يقرأ مسارًا منقوطًا (مثال: "input.fields.sector.label") من كائن القاموس

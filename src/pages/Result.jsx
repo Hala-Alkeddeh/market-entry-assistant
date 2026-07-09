@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./Result.css";
+// نعيد استخدام شاشتَي التحميل والخطأ من Analysis.jsx حرفيًا (نفس أصناف CSS:
+// analysis-page, spinner, analysis-title...) بدل تكرارها، عند إعادة توليد التحليل
+// بلغة جديدة من صفحة النتائج نفسها (راجع تأثير useEffect داخل Result أدناه)
+import "./Analysis.css";
 
 // عنوان الخادم الخلفي — نفس القيمة المستخدمة في Analysis.jsx (لا يوجد وحدة API مشتركة
 // حاليًا في المشروع، فكرّرنا هذا السطر الواحد بدل استحداث تجريد جديد لهذا النطاق الصغير)
@@ -47,11 +51,12 @@ function CitationTags({ ids }) {
 }
 
 // قسم أسئلة المتابعة: يعيد استخدام /api/followup على نفس خط أنابيب RAG المؤسَّس
-// لصفحة التحليل — لا منطق استرجاع أو تحقق من صحة هنا، فقط عرض/إرسال/تخزين محلي
-// لسجل الأسئلة والأجوبة ضمن هذه الجلسة (لا يُحفَظ في أي مكان بعد مغادرة الصفحة)
-function FollowUpSection({ profile, analysisResult }) {
+// لصفحة التحليل — لا منطق استرجاع أو تحقق من صحة هنا، فقط عرض وإرسال. سجل الأسئلة
+// والأجوبة (turns) مرفوع إلى المكوّن الأب Result (وليس محليًا هنا) كي يبقى محفوظًا
+// حتى أثناء إعادة توليد التحليل الأساسي بلغة جديدة — راجع Result أدناه لسبب ذلك.
+// لا يُحفَظ turns في أي مكان دائم بعد مغادرة الصفحة
+function FollowUpSection({ profile, analysisResult, turns, setTurns }) {
   const { lang, t } = useLanguage();
-  const [turns, setTurns] = useState([]);
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState("");
@@ -172,12 +177,82 @@ function FollowUpSection({ profile, analysisResult }) {
 export default function Result() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
 
   const data = location.state;
+  const hasValidData = Boolean(data && typeof data === "object" && data.result);
+
+  // اللغة التي وُلِّد بها التحليل المُستلَم عبر التنقّل من صفحة Analysis — تُستخدم
+  // فقط لتحديد مفتاح ذاكرة التخزين المؤقت أدناه لأول نتيجة نصل بها
+  const initialLanguage = data?.language === "en" ? "en" : "ar";
+
+  // ذاكرة تخزين مؤقت للتحليل الكامل بحسب اللغة، ضمن حالة هذه الصفحة فقط (لا تُحفَظ
+  // بعد مغادرتها) — تمنع إعادة استدعاء /api/analyze عند العودة إلى لغة سبق توليدها
+  const [resultsByLanguage, setResultsByLanguage] = useState(() =>
+    hasValidData ? { [initialLanguage]: { result: data.result, sources: data.sources ?? [] } } : {}
+  );
+  const [regenError, setRegenError] = useState("");
+  // عدّاد يزيده زر "إعادة المحاولة" فقط — تغييره يُعيد تشغيل تأثير إعادة التوليد
+  // أدناه لنفس اللغة الحالية دون الحاجة لدالة قابلة للاستدعاء من خارج التأثير
+  const [retryToken, setRetryToken] = useState(0);
+  // سجل أسئلة المتابعة مرفوع إلى هنا (بدل داخل FollowUpSection) كي يبقى محفوظًا حتى
+  // أثناء إعادة توليد التحليل الأساسي بلغة جديدة (شاشة التحميل تستبدل الشجرة بالكامل
+  // مؤقتًا أدناه، وكانت ستُصفّر حالة FollowUpSection الداخلية لو بقيت مملوكة منه)
+  const [followUpTurns, setFollowUpTurns] = useState([]);
+
+  // عند تبديل اللغة من رأس الصفحة (header)، نعيد توليد التحليل فقط إذا لم يسبق
+  // توليده بهذه اللغة ضمن هذه الجلسة — راجع resultsByLanguage أعلاه. الدالة معرَّفة
+  // محليًا داخل التأثير (بنفس نمط runAnalysis في Analysis.jsx) بدل دالة خارجية
+  // قابلة للاستدعاء من الزر، تفاديًا لتحذير react-hooks/set-state-in-effect؛ زر
+  // "إعادة المحاولة" يكتفي بزيادة retryToken لإعادة تشغيل هذا التأثير نفسه
+  useEffect(() => {
+    if (!hasValidData || !data?.profile || resultsByLanguage[lang]) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function regenerate() {
+      setRegenError("");
+      try {
+        const response = await fetch(`${API_BASE}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profile: data.profile, language: lang }),
+        });
+
+        const body = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          console.error("فشل إعادة توليد التحليل بلغة جديدة:", response.status, body);
+          throw new Error(body?.error || "unknown");
+        }
+
+        if (!cancelled) {
+          setResultsByLanguage((prev) => ({
+            ...prev,
+            [lang]: { result: body.result, sources: body.sources ?? [] },
+          }));
+        }
+      } catch (err) {
+        console.error("فشل إعادة توليد التحليل:", err);
+        if (!cancelled) {
+          const type = err instanceof TypeError ? "network" : err.message;
+          setRegenError(getErrorMessage(t, type));
+        }
+      }
+    }
+
+    regenerate();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, retryToken]);
 
   // حماية إضافية (MVP-safe)
-  if (!data || typeof data !== "object" || !data.result) {
+  if (!hasValidData) {
     return (
       <div className="result-page result-empty">
         <h2>{t("result.empty.title")}</h2>
@@ -189,7 +264,35 @@ export default function Result() {
     );
   }
 
-  const { result, sources = [] } = data;
+  // حالة نادرة/غير متوقعة: لا profile فلا يمكن إعادة التوليد — نعرض آخر تحليل متوفر
+  // بدل شاشة تحميل لا تنتهي أبدًا. في الوضع الطبيعي (وجود profile) تبقى current
+  // undefined أثناء التوليد الفعلي لعرض شاشة التحميل/الخطأ أدناه كما هو مطلوب
+  const current =
+    resultsByLanguage[lang] ?? (!data.profile ? resultsByLanguage[initialLanguage] : undefined);
+
+  if (!current) {
+    if (regenError) {
+      return (
+        <div className="analysis-page">
+          <h1 className="analysis-error-title">{t("analysis.errorTitle")}</h1>
+          <p className="analysis-error-message">{regenError}</p>
+          <button className="btn btn-primary" onClick={() => setRetryToken((n) => n + 1)}>
+            {t("analysis.retryButton")}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="analysis-page">
+        <div className="spinner" role="status" aria-label={t("analysis.loadingAriaLabel")} />
+        <h1 className="analysis-title">{t("analysis.loadingTitle")}</h1>
+        <p className="analysis-subtitle">{t("analysis.loadingSubtitle")}</p>
+      </div>
+    );
+  }
+
+  const { result, sources = [] } = current;
   const {
     constraints = [],
     entryOptions = [],
@@ -334,7 +437,14 @@ export default function Result() {
         </section>
       )}
 
-      {data.profile && <FollowUpSection profile={data.profile} analysisResult={result} />}
+      {data.profile && (
+        <FollowUpSection
+          profile={data.profile}
+          analysisResult={result}
+          turns={followUpTurns}
+          setTurns={setFollowUpTurns}
+        />
+      )}
 
       <button className="btn btn-primary" onClick={() => navigate("/")}>
         {t("result.newAnalysisButton")}

@@ -49,9 +49,10 @@ export default function Analysis() {
         }
 
         if (!cancelled) {
-          // نمرّر profile أيضًا (وليس فقط result/sources) لأن صفحة النتائج تحتاجه
-          // لاحقًا عند إرسال أسئلة متابعة إلى /api/followup
-          navigate("/result", { state: { ...data, profile } });
+          // نمرّر profile وlanguage أيضًا (وليس فقط result/sources): profile لازم
+          // لإرسال أسئلة المتابعة ولإعادة توليد التحليل عند تبديل اللغة، وlanguage
+          // يخبر صفحة النتائج بأي لغة وُلِّد بها هذا التحليل تحديدًا (راجع Result.jsx)
+          navigate("/result", { state: { ...data, profile, language: lang } });
         }
       } catch (err) {
         // لا نعرض err.message الخام أبدًا للمستخدم — فقط رسالة آمنة مطابقة لنوع الخطأ ولغة الواجهة
