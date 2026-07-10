@@ -1,33 +1,72 @@
+/* App.css — رأس علوي بأسلوب DecisionSyria (شريط ثابت بعرض كامل، محتوى موسّط) */
+
 .app-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
+/* الشريط: عرض كامل، خلفية بيضاء شفافة، حدّ سفلي، ثابت أعلى الصفحة */
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* المحتوى الداخلي موسّط بنفس عرض بقية الصفحات */
+.app-header-inner {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   width: 100%;
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: var(--space-sm) var(--space-md) 0;
+  height: 66px;
+  padding: 0 var(--space-md);
 }
 
+/* العلامة */
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+}
+.app-brand-mark {
+  width: 26px;
+  height: 26px;
+  color: var(--color-accent);
+  flex: none;
+}
+
+/* مبدّل اللغة */
 .lang-toggle {
   display: inline-flex;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   overflow: hidden;
+  background: var(--color-surface);
 }
 
 .lang-toggle-btn {
   border: none;
-  background: var(--color-surface);
+  background: transparent;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   font-weight: 700;
-  padding: 0.4rem 0.9rem;
+  padding: 0.45rem 0.95rem;
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .lang-toggle-btn.active {

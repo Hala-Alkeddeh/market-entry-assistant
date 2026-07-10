@@ -1,26 +1,50 @@
+/* Home.css — enhanced (DecisionSyria look). Same class names as before. */
+
 .home-page {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: var(--space-md);
-  max-width: 32rem;
+  max-width: 44rem;
   margin: 0 auto;
-  padding: var(--space-xl) var(--space-sm);
+  padding: clamp(2.5rem, 8vh, 6rem) var(--space-sm) var(--space-xl);
 }
 
 .home-title {
-  font-size: var(--font-size-2xl);
+  position: relative;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.9rem, 4.5vw, 2.9rem);
+  line-height: 1.2;
+  letter-spacing: -.01em;
   color: var(--color-primary);
+  padding-bottom: var(--space-sm);
+}
+
+/* short green accent bar under the title (echoes DecisionSyria's brand rule) */
+.home-title::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 3.25rem;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
 }
 
 .home-intro {
   color: var(--color-text-muted);
   font-size: var(--font-size-lg);
+  line-height: 1.75;
+  max-width: 38ch;
 }
 
 .home-cta {
-  margin-top: var(--space-sm);
-  padding: 0.9rem 2rem;
+  margin-top: var(--space-md);
+  padding: 1rem 2.25rem;
   font-size: var(--font-size-lg);
+  box-shadow: 0 12px 26px -14px rgba(27, 42, 74, .6);
 }

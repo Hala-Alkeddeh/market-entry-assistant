@@ -1,4 +1,4 @@
-# Market Entry Assistant
+# DecisionSyria
 
 AI-powered decision support system for entrepreneurs entering the Syrian market.
 

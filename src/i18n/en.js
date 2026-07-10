@@ -7,7 +7,7 @@ export const en = {
     langToggleAriaLabel: "Language",
   },
   home: {
-    title: "Syrian Market Entry Assistant",
+    title: "DecisionSyria",
     intro:
       "A decision-support tool for entering the Syrian market. Its answers are built exclusively on trusted sources to help you understand the available legal options before consulting a specialized lawyer.",
     cta: "Start Assessment",

@@ -1,15 +1,23 @@
+/* Input.css — enhanced (DecisionSyria look). Same class names as before. */
+
 .input-page {
-  max-width: 40rem;
+  max-width: 44rem;
   margin: 0 auto;
+  padding-block: var(--space-lg);
 }
 
 .input-title {
-  font-size: var(--font-size-2xl);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.6rem, 3.4vw, 2.1rem);
+  color: var(--color-primary);
   margin-bottom: var(--space-xs);
 }
 
 .input-subtitle {
   color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+  line-height: 1.7;
   margin-bottom: var(--space-lg);
 }
 
@@ -26,38 +34,59 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   box-shadow: var(--shadow-sm);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.form-group:focus-within {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .form-group label {
   font-weight: 600;
   font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-  min-height: 44px;
-  padding: 0.6rem 0.75rem;
+  min-height: 46px;
+  padding: .7rem .85rem;
+  font-family: var(--font-family);
   font-size: var(--font-size-base);
   color: var(--color-text);
-  background: #fff;
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
+  transition: border-color .15s, box-shadow .15s, background .15s;
 }
+
+.form-group select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2366708A' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left .9rem center;
+  padding-inline-end: 2.2rem;
+}
+:root[dir="ltr"] .form-group select,
+html[dir="ltr"] .form-group select { background-position: right .9rem center; padding-inline-start: .85rem; padding-inline-end: 2.2rem; }
 
 .form-group select:focus,
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
+  background: #fff;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .form-group textarea {
-  min-height: 90px;
+  min-height: 92px;
   resize: vertical;
+  line-height: 1.6;
 }
 
 .form-error {
@@ -67,18 +96,20 @@
   color: var(--color-danger);
   background: var(--color-danger-bg);
   border: 1px solid var(--color-danger-border);
+  border-inline-start: 3px solid var(--color-danger);
   border-radius: var(--radius-sm);
 }
 
 .input-form .btn {
-  margin-top: var(--space-xs);
+  margin-top: var(--space-sm);
   align-self: stretch;
   font-size: var(--font-size-lg);
+  padding-block: 1rem;
 }
 
 @media (min-width: 640px) {
   .input-form .btn {
     align-self: flex-start;
-    min-width: 10rem;
+    min-width: 12rem;
   }
 }
