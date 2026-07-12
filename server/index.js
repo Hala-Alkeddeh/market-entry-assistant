@@ -1,10 +1,15 @@
 // نقطة الدخول لخادم Express — يُشغَّل بشكل منفصل عن خادم Vite
 // الواجهة الأمامية (React) تستدعي هذا الخادم فقط، ولا ترى أي مفتاح API مباشرة
 
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
 import { answerFromProfile, answerFollowUp } from './query.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const distDir = path.join(__dirname, '..', 'dist');
 
 // لغات الإخراج المدعومة لنص التحليل — أي قيمة أخرى تُرَدّ بصمت إلى 'ar' الافتراضية
 const SUPPORTED_LANGUAGES = ['ar', 'en'];
@@ -41,6 +46,7 @@ function findMissingRequiredFields(profile) {
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(distDir));
 
 app.post('/api/analyze', async (req, res) => {
   const { profile, language } = req.body ?? {};
@@ -113,6 +119,14 @@ app.post('/api/followup', async (req, res) => {
     console.error('POST /api/followup رفض الطلب بنوع الخطأ:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    next();
+    return;
+  }
+  res.sendFile(path.join(distDir, 'index.html'));
 });
 
 app.listen(config.port, () => {
