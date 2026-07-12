@@ -40,6 +40,9 @@ const SOURCE_DISPLAY_NAMES = {
   steps: 'خطوات تأسيس شركة في سوريا',
   minesrtyOfEconomyAndIndustry: 'دليل إجراءات التأسيس (وزارة الاقتصاد والصناعة)',
   SyrianCompaniesLaw: 'قانون الشركات السوري',
+  'the-investors-handbook': 'دليل المستثمر في سوريا (Karam Shaar Advisory)',
+  'telecom-technology-sector': 'دليل قطاع الاتصالات والتكنولوجيا للمستثمرين',
+  'real-estate-sector': 'دليل قطاع العقارات للمستثمرين',
 };
 
 // النسخة الإنجليزية من أسماء العرض أعلاه — تُستخدم فقط لعنوان بطاقة المصدر في
@@ -55,6 +58,9 @@ const SOURCE_DISPLAY_NAMES_EN = {
   steps: 'Steps to Establish a Company in Syria',
   minesrtyOfEconomyAndIndustry: 'Formation Procedures Guide (Ministry of Economy and Industry)',
   SyrianCompaniesLaw: 'Syrian Companies Law',
+  'the-investors-handbook': "The Investor's Handbook — Doing Business in Syria (Karam Shaar Advisory)",
+  'telecom-technology-sector': 'Telecom & Technology Sector Investor Guide',
+  'real-estate-sector': 'Real Estate Sector Investor Guide',
 };
 
 // أنواع الأخطاء "الآمنة" التي يمكن إرسالها إلى الواجهة الأمامية — لا تحتوي على
