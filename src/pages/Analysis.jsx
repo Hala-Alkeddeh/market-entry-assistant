@@ -3,9 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./Analysis.css";
 
-// عنوان الخادم الخلفي (Express) — يمكن تجاوزه عبر VITE_API_BASE_URL دون تعديل الكود
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-
 // يحوّل نوع خطأ آمن (quota/network/auth/...) إلى رسالة نصية بلغة الواجهة الحالية —
 // لا تُعرض أي تفاصيل تقنية خام (status codes، أسماء نماذج، حصص استخدام، روابط API)
 // للمستخدم إطلاقًا. عند غياب النوع من القاموس تُستخدم رسالة "unknown" كـ fallback
@@ -33,7 +30,7 @@ export default function Analysis() {
 
     async function runAnalysis() {
       try {
-        const response = await fetch(`${API_BASE}/api/analyze`, {
+        const response = await fetch(`/api/analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ profile, language: lang }),

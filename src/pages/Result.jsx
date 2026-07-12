@@ -7,10 +7,6 @@ import "./Result.css";
 // بلغة جديدة من صفحة النتائج نفسها (راجع تأثير useEffect داخل Result أدناه)
 import "./Analysis.css";
 
-// عنوان الخادم الخلفي — نفس القيمة المستخدمة في Analysis.jsx (لا يوجد وحدة API مشتركة
-// حاليًا في المشروع، فكرّرنا هذا السطر الواحد بدل استحداث تجريد جديد لهذا النطاق الصغير)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-
 // حد أقصى لطول سؤال المتابعة على الواجهة — يطابق FOLLOWUP_QUESTION_MAX_LENGTH في index.js
 const FOLLOWUP_QUESTION_MAX_LENGTH = 500;
 
@@ -76,7 +72,7 @@ function FollowUpSection({ profile, analysisResult, turns, setTurns }) {
       .map((turn) => ({ question: turn.question, answer: turn.answer }));
 
     try {
-      const response = await fetch(`${API_BASE}/api/followup`, {
+      const response = await fetch(`/api/followup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -215,7 +211,7 @@ export default function Result() {
     async function regenerate() {
       setRegenError("");
       try {
-        const response = await fetch(`${API_BASE}/api/analyze`, {
+        const response = await fetch(`/api/analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ profile: data.profile, language: lang }),
