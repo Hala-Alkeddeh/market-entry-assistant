@@ -11,8 +11,8 @@ export default function App() {
         <div className="app-header-inner">
           {/* العلامة على جهة البداية — رابط بسيط للرئيسية (App خارج الراوتر) */}
           <a className="app-brand" href="/">
-              <img src="/syria.svg" alt="DecisionSyria" width={35} />
-            <span>DecisionSyria</span>
+              <img src="/bosla_mark_navy.svg" alt="BOSLA" width={35} />
+            <span>BOSLA</span>
           </a>
 
           <div

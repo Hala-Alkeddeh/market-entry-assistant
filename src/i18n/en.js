@@ -7,9 +7,9 @@ export const en = {
     langToggleAriaLabel: "Language",
   },
   home: {
-    title: "DecisionSyria",
+    title: "BOSLA",
     intro:
-      "A decision-support tool for entering the Syrian market. Its answers are built exclusively on trusted sources to help you understand the available legal options before consulting a specialized lawyer.",
+      "Your compass to the Syrian market. Grounded, source-cited answers to help you understand the available legal options — before you consult a specialized lawyer.",
     cta: "Start Assessment",
   },
   input: {
@@ -122,7 +122,7 @@ export const en = {
     },
   },
   result: {
-    title: "Market Entry Decision",
+    title: "Your BOSLA Market Entry Analysis",
     errorBanner:
       "⚠ The system could not fully produce a reliable analysis for this request. Please try again, or review the technical details below.",
     businessSummaryTitle: "Project Summary",
