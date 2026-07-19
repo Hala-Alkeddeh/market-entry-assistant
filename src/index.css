@@ -107,7 +107,8 @@ h3 {
 
 p { margin: 0 0 var(--space-sm); }
 
-ul { margin: var(--space-xs) 0; padding-inline-start: 1.25rem; }
+ul,
+ol { margin: var(--space-xs) 0; padding-inline-start: 1.25rem; }
 
 a { color: var(--color-accent); }
 

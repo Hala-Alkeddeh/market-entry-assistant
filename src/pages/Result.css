@@ -205,6 +205,18 @@
   line-height: 1.4;
 }
 
+/* عرض حقول Markdown (غامق/قوائم/فقرات) القادمة من نص المحلل — راجع MarkdownText.jsx */
+.markdown-text p { margin: 0 0 var(--space-sm); }
+.markdown-text p:last-child { margin-bottom: 0; }
+.markdown-text strong { font-weight: 700; }
+.markdown-text ul,
+.markdown-text ol {
+  margin: var(--space-xs) 0;
+  padding-inline-start: 1.25rem;
+  line-height: 1.75;
+}
+.markdown-text li { margin: 0.15rem 0; }
+
 .result-empty { align-items: center; text-align: center; }
 
 .result-sources-note {

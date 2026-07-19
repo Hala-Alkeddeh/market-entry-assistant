@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
+import MarkdownText from "../components/MarkdownText";
 import "./Result.css";
 // نعيد استخدام شاشتَي التحميل والخطأ من Analysis.jsx حرفيًا (نفس أصناف CSS:
 // analysis-page, spinner, analysis-title...) بدل تكرارها، عند إعادة توليد التحليل
@@ -125,7 +126,7 @@ function FollowUpSection({ profile, analysisResult, turns, setTurns }) {
                 <p className="followup-answer followup-answer-error">{turn.errorMessage}</p>
               ) : (
                 <>
-                  <p className="followup-answer">{turn.answer}</p>
+                  <MarkdownText className="followup-answer">{turn.answer}</MarkdownText>
                   {turn.sources?.length > 0 && (
                     <div className="followup-sources">
                       <span className="followup-sources-label">
@@ -305,7 +306,7 @@ export default function Result() {
       {lawyerSummary.businessSummary && (
         <section className="result-section">
           <h2>{t("result.businessSummaryTitle")}</h2>
-          <p className="result-summary-text">{lawyerSummary.businessSummary}</p>
+          <MarkdownText className="result-summary-text">{lawyerSummary.businessSummary}</MarkdownText>
         </section>
       )}
 
@@ -326,7 +327,7 @@ export default function Result() {
                     <strong>{t("result.requirementsLabel")}</strong>
                     <ul>
                       {option.requirements.map((req, j) => (
-                        <li key={j}>{req}</li>
+                        <li key={j}><MarkdownText>{req}</MarkdownText></li>
                       ))}
                     </ul>
                   </div>
@@ -336,7 +337,7 @@ export default function Result() {
                     <strong>{t("result.risksLabel")}</strong>
                     <ul>
                       {option.risks.map((risk, j) => (
-                        <li key={j}>{risk}</li>
+                        <li key={j}><MarkdownText>{risk}</MarkdownText></li>
                       ))}
                     </ul>
                   </div>
@@ -366,7 +367,7 @@ export default function Result() {
             {constraints.map((c, i) => (
               <li className="constraint-item" key={i}>
                 <StatusBadge status={c.status} />
-                <span className="constraint-text">{c.text}</span>
+                <MarkdownText className="constraint-text">{c.text}</MarkdownText>
                 <CitationTags ids={c.sources} />
               </li>
             ))}
@@ -379,7 +380,7 @@ export default function Result() {
           <h2>{t("result.gapsTitle")}</h2>
           <ul>
             {gaps.map((gap, i) => (
-              <li key={i}>{gap}</li>
+              <li key={i}><MarkdownText>{gap}</MarkdownText></li>
             ))}
           </ul>
         </section>
@@ -394,7 +395,7 @@ export default function Result() {
               <strong>{t("result.keyLegalQuestionsLabel")}</strong>
               <ul>
                 {lawyerSummary.keyLegalQuestions.map((q, i) => (
-                  <li key={i}>{q}</li>
+                  <li key={i}><MarkdownText>{q}</MarkdownText></li>
                 ))}
               </ul>
             </div>
@@ -404,7 +405,7 @@ export default function Result() {
               <strong>{t("result.missingDocumentsLabel")}</strong>
               <ul className="checklist">
                 {lawyerSummary.missingDocuments.map((doc, i) => (
-                  <li key={i}>{doc}</li>
+                  <li key={i}><MarkdownText>{doc}</MarkdownText></li>
                 ))}
               </ul>
             </div>
@@ -425,8 +426,8 @@ export default function Result() {
                 </div>
                 {/* المقتطف (s.snippet) مخفي حاليًا من العرض عمدًا — البيانات ما زالت
                     موجودة في الكائن، يمكن إعادة إظهاره لاحقًا بإرجاع سطر <p> هنا.
-                    المقتطفات نصوص حرفية من المصادر وتبقى بالعربية دومًا، حتى في
-                    وضع الإنجليزية — لا تُترجَم أبدًا (راجع query.js) */}
+                    المقتطفات نصوص حرفية من المصادر وتبقى بالإنجليزية دومًا، حتى في
+                    وضع العربية — لا تُترجَم أبدًا (راجع query.js) */}
               </div>
             ))}
           </div>

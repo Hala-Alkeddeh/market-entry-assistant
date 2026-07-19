@@ -47,7 +47,8 @@ const SOURCE_DISPLAY_NAMES = {
 
 // النسخة الإنجليزية من أسماء العرض أعلاه — تُستخدم فقط لعنوان بطاقة المصدر في
 // الواجهة عندما تكون لغة الإخراج المطلوبة إنجليزية. لا علاقة لها بالاسترجاع
-// (retrieval) ولا بمحتوى <SOURCES> المرسَل للنموذج، وهما يبقيان عربيين دومًا
+// (retrieval) ولا بمحتوى <SOURCES> المرسَل للنموذج — كلاهما إنجليزي الآن لأن
+// قاعدة المعرفة في /sources أصبحت إنجليزية بالكامل (راجع buildRetrievalQuery)
 const SOURCE_DISPLAY_NAMES_EN = {
   journey: 'Comprehensive Knowledge Base for Company Formation in Syria',
   inside_syria: 'Formation for Residents Inside Syria',
@@ -62,6 +63,93 @@ const SOURCE_DISPLAY_NAMES_EN = {
   'telecom-technology-sector': 'Telecom & Technology Sector Investor Guide',
   'real-estate-sector': 'Real Estate Sector Investor Guide',
 };
+
+// خريطة تحويل القيم الثابتة (canonical) لحقول select في Input.jsx من العربية إلى
+// الإنجليزية — تُستخدم فقط لبناء استعلام الاسترجاع (retrieval)، وليس لأي غرض آخر.
+// القيمة المخزَّنة في profile تبقى عربية دومًا (راجع LanguageContext.jsx) بغض النظر
+// عن لغة الواجهة، لذا هذا التحويل ضروري الآن لأن قاعدة المعرفة أصبحت إنجليزية.
+// النصوص هنا منسوخة من src/i18n/en.js (options) — أبقِها متطابقة إن تغيّر نصّ الواجهة هناك.
+// أي قيمة غير موجودة هنا تُستخدم كما هي (fallback آمن، لا يكسر الاسترجاع).
+const PROFILE_ENUM_VALUES_EN = {
+  investorLocation: {
+    'داخل سوريا': 'Inside Syria',
+    'خارج سوريا': 'Outside Syria',
+  },
+  nationality: {
+    'سوري': 'Syrian',
+    'عربي': 'Arab (non-Syrian)',
+    'أجنبي (غير عربي)': 'Foreign (non-Arab)',
+  },
+  hasCompanyAbroad: {
+    'نعم': 'Yes',
+    'لا': 'No',
+  },
+  purpose: {
+    'ممارسة نشاط تجاري ربحي': 'Conducting for-profit commercial activity',
+    'دراسة السوق والتمثيل فقط (دون نشاط ربحي)': 'Market research and representation only (non-profit)',
+  },
+  sector: {
+    'تقانة المعلومات والبرمجيات': 'IT & Software',
+    'التجارة العامة (استيراد/تصدير)': 'General Trade (Import/Export)',
+    'التطوير العقاري والمقاولات': 'Real Estate Development & Contracting',
+    'التصنيع الغذائي والزراعي': 'Food & Agricultural Manufacturing',
+    'النقل والخدمات اللوجستية': 'Transport & Logistics',
+    'أخرى': 'Other',
+  },
+  businessType: {
+    'شركة محدودة المسؤولية (LLC)': 'Limited Liability Company (LLC)',
+    'فرع لشركة أجنبية': 'Branch of a Foreign Company',
+    'مكتب تمثيلي': 'Representative Office',
+    'مؤسسة فردية': 'Sole Proprietorship',
+    'غير متأكد — أرغب باقتراح مناسب': "Not sure — I'd like a suggestion",
+  },
+  ownershipPreference: {
+    'ملكية كاملة 100% دون شريك سوري': '100% full ownership without a Syrian partner',
+    'ملكية مشتركة مع شريك سوري': 'Joint ownership with a Syrian partner',
+    'غير محدد بعد': 'Not decided yet',
+  },
+  capital: {
+    'لا يوجد رأس مال بعد': 'No capital yet',
+    'أقل من 50 مليون ليرة سورية': 'Less than 50 million SYP',
+    'من 50 إلى أقل من 150 مليون ليرة سورية': '50 to under 150 million SYP',
+    'من 150 مليون إلى أقل من مليار ليرة سورية': '150 million to under 1 billion SYP',
+    'مليار ليرة سورية فأكثر': '1 billion SYP or more',
+  },
+  partnersCount: {
+    'مؤسس واحد فقط': 'A single founder only',
+    'شريكان': 'Two partners',
+    'ثلاثة شركاء أو أكثر': 'Three or more partners',
+  },
+};
+
+// يحوّل قيمة حقل select من العربية (canonical) إلى الإنجليزية للاستخدام في استعلام
+// الاسترجاع فقط — قيمة غير معروفة تُعاد كما هي بدل رميّ خطأ
+function toEnglishEnumValue(fieldId, value) {
+  return PROFILE_ENUM_VALUES_EN[fieldId]?.[value] ?? value;
+}
+
+// نمط اكتشاف الحروف العربية — تحقق بسيط ورخيص (بدون استدعاء API) لتفادي ترجمة نص
+// إنجليزي أصلاً قبل إرساله لأي استدعاء ترجمة
+const ARABIC_SCRIPT_RE = /[؀-ۿ]/;
+
+// يترجم نصًا حرًّا (freeText أو سؤال متابعة) إلى الإنجليزية قبل استخدامه في استعلام
+// الاسترجاع، فقط إذا احتوى على حروف عربية — نص إنجليزي أصلاً يُعاد كما هو دون أي
+// استدعاء. عند فشل الاستدعاء (حصة/شبكة/إلخ) نعيد النص الأصلي كـ fallback آمن بدل
+// إفشال الطلب بالكامل؛ الاسترجاع بالنص العربي الأصلي أفضل من عدم إرجاع أي نتيجة
+async function translateToEnglish(ai, text) {
+  if (!text || !ARABIC_SCRIPT_RE.test(text)) return text ?? '';
+  try {
+    const response = await ai.models.generateContent({
+      model: config.chatModel,
+      contents: `Translate the following text to English. Reply with only the translated text — no notes, no quotes, no explanation.\n\n${text}`,
+    });
+    const translated = (response.text ?? '').trim();
+    return translated || text;
+  } catch (error) {
+    console.error('translateToEnglish: فشل استدعاء الترجمة — استخدام النص الأصلي كـ fallback', error);
+    return text;
+  }
+}
 
 // أنواع الأخطاء "الآمنة" التي يمكن إرسالها إلى الواجهة الأمامية — لا تحتوي على
 // أي تفاصيل تقنية (لا status codes، لا أسماء نماذج، لا حصص استخدام، لا روابط API)
@@ -135,15 +223,15 @@ const LANGUAGE_NAMES = {
 
 // قاعدة إضافية واحدة فقط (رقم ٧) تُلحَق بعد SYSTEM_PROMPT الأصلي دون تعديل أي حرف
 // فيه — تتحكم حصريًا بلغة كتابة الحقول النصية في الإخراج. الاسترجاع من Pinecone
-// ومحتوى <SOURCES> المرسَل للنموذج يبقيان عربيين دومًا بغض النظر عن هذه القاعدة
-// (راجع buildRetrievalQuery وanswerFromProfile)، ومعرّفات الاستشهاد [S1]/[S2] يجب
-// أن تبقى كما هي حرفيًا دون ترجمة حتى تستمر مطابقتها لقائمة المصادر المعروضة
+// ومحتوى <SOURCES> المرسَل للنموذج إنجليزيان دومًا بغض النظر عن هذه القاعدة (راجع
+// buildRetrievalQuery وanswerFromProfile)، ومعرّفات الاستشهاد [S1]/[S2] يجب أن
+// تبقى كما هي حرفيًا دون ترجمة حتى تستمر مطابقتها لقائمة المصادر المعروضة
 function buildLanguageRule(language) {
   const languageName = LANGUAGE_NAMES[language] ?? LANGUAGE_NAMES.ar;
   return `
 ٧. اكتب كل الحقول النصية في الإخراج (مثل text، businessSummary، requirements،
    risks، gaps، keyLegalQuestions، missingDocuments) باللغة: ${languageName}.
-   مع ذلك، استمر بالاعتماد حصريًا على مضمون كتلة <SOURCES> العربية أعلاه دون أي
+   مع ذلك، استمر بالاعتماد حصريًا على مضمون كتلة <SOURCES> الإنجليزية أعلاه دون أي
    استثناء لهذه القاعدة (القواعد ١-٦ أعلاه تبقى سارية كما هي بالكامل)، ولا تُترجم
    أو تُغيّر معرّفات الاستشهاد [S1]، [S2]... بل أبقِها كما وردت بالضبط.
 `.trim();
@@ -198,10 +286,16 @@ function truncateFreeText(freeText) {
   return trimmed.length > FREE_TEXT_MAX_LENGTH ? trimmed.slice(0, FREE_TEXT_MAX_LENGTH) : trimmed;
 }
 
-// TODO 1: بناء استعلام استرجاع بالعربية من حقول ملف تعريف المستخدم
+// TODO 1: بناء استعلام استرجاع بالإنجليزية من حقول ملف تعريف المستخدم — القاعدة
+// المعرفية في /sources أصبحت إنجليزية بالكامل، لذا يجب أن يكون استعلام الاسترجاع
+// إنجليزيًا أيضًا حتى يطابق فضاء التضمين (embedding space) لمقاطع الفهرس.
+// حقول select: القيمة المخزَّنة في profile عربية دومًا (canonical، راجع
+// LanguageContext.jsx) بغض النظر عن لغة الواجهة، لذا تُحوَّل هنا عبر
+// toEnglishEnumValue/PROFILE_ENUM_VALUES_EN. freeText نص حر قد يكتبه المستخدم
+// بالعربية أو الإنجليزية، لذا يُترجَم عبر translateToEnglish قبل إضافته.
 // الحقول مطابقة لأسئلة Input.jsx المبنية على "Questions the Software Should
 // Ask the User" الواردة في كل ملفات /sources
-function buildRetrievalQuery(profile) {
+async function buildRetrievalQuery(ai, profile) {
   const {
     investorLocation,
     nationality,
@@ -217,16 +311,20 @@ function buildRetrievalQuery(profile) {
 
   const parts = [];
 
-  if (investorLocation) parts.push(`موقع المؤسس: ${investorLocation}`);
-  if (nationality) parts.push(`جنسية المؤسس: ${nationality}`);
-  if (hasCompanyAbroad) parts.push(`يمتلك شركة مسجلة خارج سوريا: ${hasCompanyAbroad}`);
-  if (purpose) parts.push(`الهدف من الدخول: ${purpose}`);
-  if (sector) parts.push(`القطاع المستهدف: ${sector}`);
-  if (businessType) parts.push(`الشكل القانوني المفضل: ${businessType}`);
-  if (ownershipPreference) parts.push(`تفضيل نسبة الملكية: ${ownershipPreference}`);
-  if (capital) parts.push(`رأس المال المتاح: ${capital}`);
-  if (partnersCount) parts.push(`عدد الشركاء المتوقع: ${partnersCount}`);
-  if (freeText) parts.push(`تفاصيل إضافية من المستخدم: ${freeText}`);
+  if (investorLocation) parts.push(`Founder location: ${toEnglishEnumValue('investorLocation', investorLocation)}`);
+  if (nationality) parts.push(`Founder nationality: ${toEnglishEnumValue('nationality', nationality)}`);
+  if (hasCompanyAbroad) {
+    parts.push(`Owns a company registered outside Syria: ${toEnglishEnumValue('hasCompanyAbroad', hasCompanyAbroad)}`);
+  }
+  if (purpose) parts.push(`Purpose of entry: ${toEnglishEnumValue('purpose', purpose)}`);
+  if (sector) parts.push(`Target sector: ${toEnglishEnumValue('sector', sector)}`);
+  if (businessType) parts.push(`Preferred legal form: ${toEnglishEnumValue('businessType', businessType)}`);
+  if (ownershipPreference) {
+    parts.push(`Ownership share preference: ${toEnglishEnumValue('ownershipPreference', ownershipPreference)}`);
+  }
+  if (capital) parts.push(`Available capital: ${toEnglishEnumValue('capital', capital)}`);
+  if (partnersCount) parts.push(`Expected number of partners: ${toEnglishEnumValue('partnersCount', partnersCount)}`);
+  if (freeText) parts.push(`Additional details from the user: ${await translateToEnglish(ai, freeText)}`);
 
   return parts.join('. ');
 }
@@ -234,23 +332,31 @@ function buildRetrievalQuery(profile) {
 // يبني تلميحًا مختصرًا جدًا من ملف تعريف المستخدم لاستعلام استرجاع سؤال المتابعة —
 // وليس الجملة الكاملة متعددة الحقول التي يبنيها buildRetrievalQuery (تلك محجوزة
 // للتحليل الرئيسي حيث الاسترجاع يجب أن يكون مدفوعًا بالكامل بملف التعريف). هنا
-// نكتفي بأهم أربع إشارات حتى لا يطغى التلميح على سؤال المستخدم نفسه في متجه التضمين
+// نكتفي بأهم أربع إشارات حتى لا يطغى التلميح على سؤال المستخدم نفسه في متجه التضمين.
+// القيم مُحوَّلة للإنجليزية عبر toEnglishEnumValue لنفس السبب الموضح في buildRetrievalQuery
 function buildFollowUpProfileHint(profile) {
   const { sector, businessType, nationality, investorLocation } = profile ?? {};
-  const parts = [sector, businessType, nationality, investorLocation].filter(Boolean);
-  return parts.length > 0 ? `(سياق مختصر عن المستخدم: ${parts.join('، ')})` : '';
+  const parts = [
+    sector && toEnglishEnumValue('sector', sector),
+    businessType && toEnglishEnumValue('businessType', businessType),
+    nationality && toEnglishEnumValue('nationality', nationality),
+    investorLocation && toEnglishEnumValue('investorLocation', investorLocation),
+  ].filter(Boolean);
+  return parts.length > 0 ? `(Brief user context: ${parts.join(', ')})` : '';
 }
 
 // يبني استعلام استرجاع لسؤال متابعة: السؤال أولًا وبصياغته الكاملة كما كتبه
-// المستخدم، ليقود هو التضمين (embedding) — ثم تلميح قصير جدًا عن ملف التعريف يُضاف
-// بعده كسياق ثانوي فقط. يعالج هذا مشكلة كانت تُغرِق أسئلة قصيرة ومحددة (مثل
-// "ما شركة التضامن؟") داخل جملة طويلة عن القطاع/الموقع/رأس المال، فلا تصعد
-// المقاطع النظرية/القانونية (كقانون الشركات السوري) إلى أفضل النتائج رغم وجودها في
-// الفهرس. الاسترجاع يبقى بالعربية دومًا كما في التحليل الرئيسي؛ لا علاقة لهذا
-// بلغة الإخراج (language) — راجع buildLanguageRule
-function buildFollowUpRetrievalQuery(profile, question) {
+// المستخدم (مُترجَمًا للإنجليزية إن كتبه بالعربية عبر translateToEnglish)، ليقود
+// هو التضمين (embedding) — ثم تلميح قصير جدًا عن ملف التعريف يُضاف بعده كسياق
+// ثانوي فقط. يعالج هذا مشكلة كانت تُغرِق أسئلة قصيرة ومحددة (مثل "ما شركة
+// التضامن؟") داخل جملة طويلة عن القطاع/الموقع/رأس المال، فلا تصعد المقاطع
+// النظرية/القانونية (كقانون الشركات السوري) إلى أفضل النتائج رغم وجودها في الفهرس.
+// الاسترجاع إنجليزي دومًا كما في التحليل الرئيسي؛ لا علاقة لهذا بلغة الإخراج
+// (language) — راجع buildLanguageRule
+async function buildFollowUpRetrievalQuery(ai, profile, question) {
+  const translatedQuestion = await translateToEnglish(ai, question);
   const profileHint = buildFollowUpProfileHint(profile);
-  return profileHint ? `${question} ${profileHint}` : question;
+  return profileHint ? `${translatedQuestion} ${profileHint}` : translatedQuestion;
 }
 
 // TODO 2: تحويل استعلام الاسترجاع إلى متجه — بنفس نموذج وأبعاد ingest.js (من config.js، بدون تثبيت مباشر)
@@ -284,7 +390,8 @@ async function retrieveMatches(pc, queryVector, topK = TOP_K) {
 // يحوّل اسم ملف المصدر (source metadata) إلى اسم عرض مقروء، بالعربية أو الإنجليزية
 // حسب لغة الإخراج المطلوبة. لا يُعرَض أي مسار محلي (path) على الإطلاق — هذه الدالة
 // تعتمد فقط على اسم الملف. ملاحظة: هذا يغيّر فقط عنوان بطاقة المصدر المعروضة —
-// مقتطف النص (snippet) يبقى دومًا نصًا عربيًا حرفيًا من المصدر (راجع buildSnippet)
+// مقتطف النص (snippet) يبقى دومًا نصًا إنجليزيًا حرفيًا من المصدر (راجع buildSnippet)،
+// بغض النظر عن لغة الإخراج المطلوبة — لا تُترجَم المقتطفات نفسها
 function getReadableSourceName(fileName, language) {
   if (!fileName) return language === 'en' ? 'Unknown source' : 'مصدر غير معروف';
   const baseName = fileName.replace(/\.[^./]+$/, ''); // إزالة الامتداد (.md/.txt)
@@ -434,8 +541,8 @@ function groupSourcesByName(sources) {
 
 // TODO 5+6+7: الدالة الرئيسية — تُنفَّذ كل خطوات RAG وتُرجع النتيجة مع المصادر
 // language: لغة إخراج نص التحليل فقط ('ar' الافتراضية أو 'en') — لا تؤثر إطلاقًا
-// على الاسترجاع (retrieval) الذي يبقى عربيًا دومًا لأن فهرس Pinecone مبني من
-// مقاطع عربية (راجع buildRetrievalQuery وbuildSystemPrompt أعلاه للتفاصيل)
+// على الاسترجاع (retrieval) الذي يبقى إنجليزيًا دومًا لأن فهرس Pinecone مبني من
+// مقاطع إنجليزية (راجع buildRetrievalQuery وbuildSystemPrompt أعلاه للتفاصيل)
 export async function answerFromProfile(profile, language = 'ar') {
   // وضع المحاكاة (Mock): يُرجع بيانات وهمية فورًا دون أي استدعاء خارجي
   // (لا Gemini embeddings، لا Pinecone، لا Gemini chat) — للتطوير المحلي فقط.
@@ -456,7 +563,7 @@ export async function answerFromProfile(profile, language = 'ar') {
     // لأن أي طلب مباشر إلى /api/analyze قد يتجاوز قيود الواجهة
     const safeProfile = { ...profile, freeText: truncateFreeText(profile.freeText) };
 
-    const retrievalQuery = buildRetrievalQuery(safeProfile);
+    const retrievalQuery = await buildRetrievalQuery(ai, safeProfile);
     const queryVector = await embedQuery(ai, retrievalQuery);
     const matches = await retrieveMatches(pc, queryVector);
     const sourcesBlock = buildSourcesBlock(matches);
@@ -477,7 +584,7 @@ export async function answerFromProfile(profile, language = 'ar') {
 
     // TODO 7: إرجاع المقاطع المسترجَعة (id, اسم عرض مقروء, مقتطف نصي) لعرضها في الواجهة
     // لا يُرسَل اسم الملف الخام ولا المسار المحلي إلى الواجهة الأمامية إطلاقًا
-    // اسم العرض يتبع لغة الإخراج المطلوبة، أما المقتطف فيبقى عربيًا دومًا (buildSnippet)
+    // اسم العرض يتبع لغة الإخراج المطلوبة، أما المقتطف فيبقى إنجليزيًا دومًا (buildSnippet)
     const sources = matches.map((match, i) => ({
       id: `S${i + 1}`,
       sourceName: getReadableSourceName(match.metadata?.source, language),
@@ -520,7 +627,7 @@ export async function answerFollowUp(profile, analysisResult, history, question,
     // نافذة بسيطة: آخر FOLLOWUP_HISTORY_WINDOW جولة فقط تُرسَل كسياق (وليس السجل كاملًا)
     const windowedHistory = Array.isArray(history) ? history.slice(-FOLLOWUP_HISTORY_WINDOW) : [];
 
-    const retrievalQuery = buildFollowUpRetrievalQuery(profile, question);
+    const retrievalQuery = await buildFollowUpRetrievalQuery(ai, profile, question);
     const queryVector = await embedQuery(ai, retrievalQuery);
     const matches = await retrieveMatches(pc, queryVector, FOLLOWUP_TOP_K);
     const sourcesBlock = buildSourcesBlock(matches);

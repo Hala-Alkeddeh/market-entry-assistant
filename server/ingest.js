@@ -186,6 +186,11 @@ export async function ingestSources() {
           path: filePath,
           retrievalDate,
           text: batchChunks[j], // نص المقطع نفسه، حتى يستطيع query.js إرجاعه كمصدر
+          // لغة نص المصدر الفعلي المفهرَس (بعد ترجمة القاعدة المعرفية بالكامل للإنجليزية)
+          sourceLanguage: 'en',
+          // اسم الملف الأصلي — يطابق source حاليًا لأن الترجمة تمت داخل نفس الملف
+          // بدون أرشيف عربي منفصل؛ الحقل موجود كخطاف لأي تتبّع لغوي/إصدارات مستقبلي
+          originalFile: fileName,
         },
       }));
 
